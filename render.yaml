@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: godnatt
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: TEXT_MODEL
+        value: gpt-6-luna
+      - key: IMAGE_MODEL
+        value: gpt-image-2.5-flare
+      - key: AI_PRICING_VERIFIED
+        value: "false"

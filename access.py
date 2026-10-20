@@ -45,7 +45,7 @@ def authorization(request):
     resource,id=parts[1:3]
     if resource=='families' and len(parts)==4 and parts[3] in ('unlock','pin-setup'):return
     candidates=[]
-    if resource=='families':candidates=[{'family_id':id}]
+    if resource=='families':candidates=query('SELECT id AS family_id FROM families WHERE id=%s',(id,))
     elif resource in ('people','books'):
         candidates=query(f'SELECT family_id FROM {resource} WHERE id=%s',(id,))
     elif resource=='memories':candidates=query('SELECT p.family_id FROM memories m JOIN people p ON p.id=m.person_id WHERE m.id=%s',(id,))

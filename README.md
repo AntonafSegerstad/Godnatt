@@ -1,5 +1,5 @@
 # Godnatt
-Öppen PWA för personliga godnattsagor. Python/FastAPI, PostgreSQL och vanlig HTML/CSS/JavaScript. Ingen inloggning. Alla besökare kan läsa och ändra alla familjer.
+PWA för personliga godnattsagor. Python/FastAPI, PostgreSQL och vanlig HTML/CSS/JavaScript. Familjens namn visas i familjevalet. En fyrsiffrig PIN krävs för att läsa och ändra familjens innehåll. PIN kontrolleras på servern, lagras saltad med scrypt och ger en säker HttpOnly-session i 12 timmar. Fem felaktiga försök ger fem minuters spärr. Befintliga familjer väljer sin första kod via en separat engångslänk.
 
 ## Drift
 Avsedd miljö: Render-projekt prj-dajv47uq1p3s739lohn0, miljö evm-dajv47uq1p3s739lohng. Lägg endast till en NY tjänst. Ändra inte andra projekt eller tjänster. render.yaml anger en gratis Python-webbtjänst. Ingen Render-databas eller disk skapas.

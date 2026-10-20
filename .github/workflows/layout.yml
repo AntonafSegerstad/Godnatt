@@ -1,0 +1,26 @@
+name: Reader browser investigation
+on:
+  push:
+    paths:
+      - 'qa/reader-layout.cjs'
+      - '.github/workflows/layout.yml'
+jobs:
+  browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.56.1
+      - run: npx playwright install --with-deps chromium webkit firefox
+      - run: node qa/reader-layout.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reader-layout-results
+          path: |
+            qa/layout-results.json
+            /tmp/godnatt-*.png

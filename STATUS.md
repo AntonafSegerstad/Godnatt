@@ -9,8 +9,8 @@ Render Free-tjänst skapad i My Workspace (tea-dajv1feq1p3s739let4g):
 - deploy dep-dbbo02gu01pc73edtk2g: live
 - https://godnatt.onrender.com
 - https://dashboard.render.com/web/srv-dbbo020u01pc73edte3g
-Appen svarar över HTTPS. /api/status rapporterar database=true, ai=false.
-Start, manifest och service worker svarar HTTP 200. Familjer, personer, relationer, foto och livslinje är verifierade via den publika API:n. Bokskapande är fortfarande spärrat tills bildkostnadens övre gräns är verifierad.
+Appen svarar över HTTPS. /api/status rapporterar database=true, ai=true.
+Start, manifest och service worker svarar HTTP 200. Familjer, personer, relationer, foto och livslinje är verifierade via den publika API:n. Bokskapande är öppet i uttryckligen godkänt testläge. Tre kompletta AI-böcker finns.
 
 GitHub CI (PostgreSQL 17) är godkänd:
 https://github.com/AntonafSegerstad/Godnatt/actions/runs/39442979880
@@ -31,8 +31,8 @@ Använd DIREKT host, inte -pooler-host, eftersom bokjobb använder session advis
 Anton godkände uttryckligen Neon till Render 2026-10-20 och lämnade en OpenAI-nyckel med uppdrag att placera den på servern. DATABASE_URL (direkt host), OPENAI_API_KEY och PUBLIC_ORIGIN är nu satta i just Godnatts Render-tjänst. Alla andra variabler och tjänster bevarades.
 Den tidigare automatiska granskningens blockering är löst genom det uttryckliga godkännandet. Nycklar har inte lagts i repot, klienten eller arbetsfiler.
 Läsanrop till OpenAI /models/gpt-6-luna och /models/gpt-image-2.5-flare gav 200 med den nya nyckeln. Ingen betald generering har gjorts; läsåtkomst bevisar inte ensam att bildgenerering är tillåten på kontot.
-AI_PRICING_VERIFIED=false gäller fortsatt. Budgetrad: 50 000 öre gräns, 0 öre använt/reserverat.
-USD_SEK_CEILING=15 är förberedd men AI är avstängd tills samtliga kostnadsförutsättningar är verifierade.
+AI_PRICING_VERIFIED=false gäller fortsatt. Anton bad uttryckligen att öppna spärren för test den 2026-10-20. AI_TEST_MODE=true öppnar testläge utan att felaktigt kalla bildkostnaden verifierad. IMAGE_CALL_MAX_ORE=5000 är en försiktig reservation på 50 kr per bild, inte en bevisad högsta leverantörskostnad. Samtliga anrop reserveras atomiskt före start. Okänd kostnad behålls reserverad; inga automatiska API-återförsök. Budgetrad efter tre kompletta böcker: 50 000 öre gräns, 109 öre bokfört, inga okända reservationer.
+USD_SEK_CEILING=15 används för försiktig budgeträkning. Ett strikt garanterat bildkostnadstak är inte verifierat; detta är ett fortsatt öppet testvillkor, inte en avslutad produktionskontroll.
 
 ## Publika tester
 Fiktiv familj: TEST – Godnatt QA (fiktiv familj), id 31b6eeb5-1f9c-4e6e-a99b-04405821f232.
@@ -52,3 +52,13 @@ invoice-simulator och VASS-todo-list samt samtliga tidigare repon och tjänster 
 
 ## Molnfortsättning
 Arbetet utförs i en hanterad Linux-molncontainer. Antons dator behövs inte. Koden finns nu i GitHub och tjänsten i Render. Utveckling fortsätter när en chattkörning är aktiv; ingen obegränsad obevakad utvecklingsprocess har skapats.
+
+## Tre levererade AI-testböcker
+Fiktiv familj: TEST – Tre godnattsböcker (fiktiva), id a2479196-6ed6-4ff0-be6b-df151ef68aa2.
+- Milo, 1,5 år: Milo räknar till tre. 2 sidor, 8 ord per sida. https://godnatt.onrender.com/book/4f7e0650-a328-43a7-8eca-3b0f3368b067
+- Nova, 7 år: Nova och de pirriga kullerbyttorna. 3 sidor, 54/58/52 ord. https://godnatt.onrender.com/book/aefadba3-0453-4fce-82cd-18c1bd99fd84
+- Alex, 11 år: Stigen under stjärnorna. 4 sidor, 91/99/94/94 ord. https://godnatt.onrender.com/book/0216d0b0-a99a-449e-88a1-30b13da526a5
+Samtliga sidor har riktig AI-bild och text. Alla nio bilder hämtades och verifierades som JPEG. Första bilden i varje bok granskades visuellt.
+De tre första textförsöken misslyckades eftersom AI gav karaktärsbeskrivningen i objektformat. Kostnad 4 öre. Felet är rättat genom strikt JSON-schema med character_bible som sträng. Nya godkända försök ovan ersätter inte eller raderar debiteringshistoriken.
+Ny kodcommit: 9be1dbafe0a103c1a248f5e0f152e63cf0377def. GitHub CI är godkänd med 20 tester.
+Ompublicering dep-dbbobabncjis739dcvq0 är live. Efter denna publicering öppnades alla tre böcker på nytt via oberoende HTTP-anrop: status ready, exakt 2/3/4 sidor och fungerande första bild i varje bok. Böcker och bilder är beständiga efter ny publicering.

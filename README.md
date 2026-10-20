@@ -11,7 +11,7 @@ Sätt OPENAI_API_KEY som hemlighet i Render, aldrig i kod, klient eller chatt. S
 Start: pip install -r requirements.txt, därefter python -m uvicorn app:app --host 0.0.0.0 --port 8000. Inga användardata ingår i repot.
 
 ## AI och hård budget: viktigt kvarstående villkor
-AI är avsiktligt avstängd som standard. Inte ett enda riktigt API-anrop har gjorts under bygget. Innan aktivering krävs verifierad kontoåtkomst till båda modellerna, en dokumenterad övre kostnadsgräns för varje begränsat bildanrop (högst åtta referenser i 512 px, högst 16 000 UTF-8-byte prompt, en 1024×1024 low-bild), samt en säker USD/SEK-gräns inklusive eventuella avgifter och skatt.
+AI är avsiktligt avstängd som standard. Tre riktiga testböcker har skapats efter Antons uttryckliga godkännande. Se STATUS.md för länkar och verifiering. Innan aktivering krävs verifierad kontoåtkomst till båda modellerna, en dokumenterad övre kostnadsgräns för varje begränsat bildanrop (högst åtta referenser i 512 px, högst 16 000 UTF-8-byte prompt, en 1024×1024 low-bild), samt en säker USD/SEK-gräns inklusive eventuella avgifter och skatt.
 
 Officiella tokenpriser har kontrollerats, men de hämtade källorna fastställer inte en garanterad maxkostnad per Flare-bild. IMAGE_CALL_MAX_ORE får därför INTE sättas till en gissad normal kostnad. AI_PRICING_VERIFIED ska vara false tills detta är löst. En efterkontroll av faktisk kostnad kan aldrig ersätta en riktig förhandsgräns.
 

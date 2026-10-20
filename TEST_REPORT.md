@@ -40,3 +40,8 @@ Render YAML har även validerats mot Render JSON Schema. Neon Free-projekt och t
 
 ## Efter säker serverkonfiguration
 Anton har godkänt Neon till Render och serverhemligheterna är placerade i Godnatts egen tjänst. Publika tester godkända för familj, fyra personer, fyra riktade relationer, daterad rättelse med bevarat original, radering, fotouppladdning och återöppning utan session. OpenAI-modellernas läsendpoints svarade 200. Ingen betald AI-generering har genomförts. Budgeten står på 0/500 kr och AI förblir avstängd tills bildkostnadstaket kan verifieras.
+
+## Riktigt AI-test
+Tre kompletta böcker med 2/3/4 sidor för fiktiva barn 1,5/7/11 år. Alla nio illustrationer och sidtexter sparade. Exakt sidantal och bildhämtning verifierade. Visuell kontroll av första bilden i varje bok: enkel pekboksbild, mjuk gymnastiksaga respektive mörkare scoutäventyr. Rättningen av ett verkligt AI-formatfel verifierades genom nya böcker. Budgeträkning totalt 1,09 kr inklusive första misslyckade textförsök, inga osäkra reservationer. CI med strikt bokformat och testläge är godkänd med 20 tester. Testläget är uttryckligen godkänt; strikt högsta bildkostnad är fortfarande inte bevisad.
+
+Efter ompublicering dep-dbbobabncjis739dcvq0 verifierades återöppning av alla tre färdiga böcker med exakt sidantal och fungerande bilder. 20 automatiska tester är godkända. Fotolikhet och verklig mobilinstallation har inte testats; dessa tre böcker använder fiktiva personer utan fotoreferenser.

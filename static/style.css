@@ -16,3 +16,12 @@ body.reading main{max-width:none;padding:0;margin:0}
 .reader-nav button{min-height:44px;padding:4px 16px}
 .reader-toddler .spread{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
 @media(orientation:portrait){.reader .spread{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,3fr) minmax(0,2fr)}.reader-toddler .spread{grid-template-rows:minmax(0,3fr) minmax(0,1fr)}.reader .page-text{padding:12px 7%}.reader .page-text p{font-size:clamp(19px,2.8vw,27px);margin:4px 0}}
+
+body.landing>header,body.landing>footer{display:none}
+body.landing main{max-width:540px;padding:32px 24px}
+.welcome{min-height:85vh;min-height:85dvh;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:18px;text-align:center}
+.welcome-logo{width:min(100%,340px);height:auto;align-self:center;margin-bottom:24px}
+.welcome label{font-weight:400;font-size:18px;margin:0 0 12px}
+.welcome-open{width:100%;margin-top:16px}
+.bookcard{position:relative}
+.delete-book{position:absolute;right:10px;top:10px;width:44px;height:44px;min-height:44px;padding:0;border-radius:50%;background:#fffdf7;z-index:1;box-shadow:0 2px 8px #233d3b18}

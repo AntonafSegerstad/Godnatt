@@ -286,3 +286,24 @@ def test_toddler_overlong_text_stops_before_images(client,family,monkeypatch):
     generate(b)
     assert client.get('/api/books/'+b).json()['status']=='failed'
     assert len(calls)==1
+
+def test_delete_book_keeps_budget_and_other_book(client,family):
+    from db import query
+    from ledger import reserve,settle
+    from ai import save_media
+    f,p=family;b=dummy_book(f,p);other=dummy_book(f,p)
+    cid=reserve(b,'delete-book',100);settle(cid,7)
+    assert client.delete('/api/books/'+b).status_code==409
+    buf=io.BytesIO();Image.new('RGB',(8,8),'blue').save(buf,'PNG');mid=save_media(buf.getvalue())
+    for bid in [b,other]:
+        query('INSERT INTO pages(book_id,number,text,image_id) VALUES(%s,1,%s,%s)',(bid,'Fiktiv',mid))
+        query("UPDATE books SET status='ready' WHERE id=%s",(bid,))
+    before=client.get('/api/budget').json()
+    assert client.delete('/api/books/'+b).status_code==200
+    assert client.get('/api/books/'+b).status_code==404
+    assert client.get('/api/books/'+other).status_code==200
+    assert client.get('/api/media/'+mid).status_code==200
+    assert client.get('/api/budget').json()['committed_ore']==before['committed_ore']
+    assert query('SELECT book_id FROM charges WHERE id=%s',(cid,),True)['book_id'] is None
+    assert client.delete('/api/books/'+other).status_code==200
+    assert client.get('/api/media/'+mid).status_code==404

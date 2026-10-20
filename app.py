@@ -205,6 +205,24 @@ def create_book(id:str,o:Order):
     threading.Thread(target=generate,args=(idb,),daemon=True).start()
     return {'id':idb}
 
+@app.delete('/api/books/{id}')
+def delete_book(id:str):
+    with connect() as c:
+        b=c.execute('SELECT id,status FROM books WHERE id=%s FOR UPDATE',(id,)).fetchone()
+        if not b:raise HTTPException(404,'Boken finns inte längre.')
+        if b['status'] in ('queued','generating'):
+            raise HTTPException(409,'Vänta tills boken har skapats innan du tar bort den.')
+        images=c.execute('SELECT DISTINCT image_id FROM pages WHERE book_id=%s',(id,)).fetchall()
+        c.execute('DELETE FROM books WHERE id=%s',(id,))
+        c.execute('SELECT id FROM budget WHERE id=1 FOR UPDATE')
+        freed=0
+        for image in images:
+            mid=image['image_id']
+            removed=c.execute("DELETE FROM media WHERE id=%s AND NOT EXISTS(SELECT 1 FROM pages WHERE image_id=%s) AND NOT EXISTS(SELECT 1 FROM people WHERE photo_id=%s) AND NOT EXISTS(SELECT 1 FROM books WHERE snapshot::text LIKE %s) RETURNING octet_length(data) AS bytes",(mid,mid,mid,'%'+mid+'%')).fetchone()
+            if removed:freed+=removed['bytes']
+        c.execute('UPDATE budget SET storage_bytes=GREATEST(0,storage_bytes-%s) WHERE id=1',(freed,))
+    return {'ok':True}
+
 @app.get('/api/books/{id}')
 def book(id:str):
     b=required('books',id)

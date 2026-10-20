@@ -23,18 +23,23 @@ async function start(){
  const status=await api('/status');
  if(!status.database){app.innerHTML='<div class="hero"><div><p class="eyebrow">Personliga små böcker</p><h1>En saga som<br>är alldeles din.</h1><p>Godnatt väntar på sin databas. Inget innehåll sparas på denna enhet.</p></div>'+night()+'</div><p class="notice">Serveranslutningen behöver göras klar innan familjer och böcker kan sparas.</p>';return;}
  if(location.pathname.startsWith('/book/')){await readBook(location.pathname.split('/')[2]);return;}
- const fs=await api('/families');const selected=localStorage.getItem('godnatt-family');
- if(fs.length){await selectFamily(fs.find(f=>f.id===selected)?.id||fs[0].id);return;}
- app.innerHTML='<section class="hero"><div><p class="eyebrow">Godnatt, stora lilla världen</p><h1>En saga som<br>är alldeles din.</h1><p>Små ögonblick blir stora äventyr. Skapa personliga böcker om barnen och deras värld.</p><button data-action="new-family">Skapa din första familj ＋</button></div></section><p class="muted">Inga konton. Alla familjer är öppna för alla.</p>';
+ await showLanding();
  }catch(e){app.innerHTML='<h1>En liten paus</h1><p>'+esc(e.message)+'</p><button data-action="reload">Försök igen</button>';}
  budget();
 }
+async function showLanding(){
+ await flush();clearTimeout(poller);family=null;person=null;book=null;page=0;tab='books';
+ document.body.classList.remove('reading');document.body.classList.add('landing');history.replaceState({},'','/');
+ const fs=await api('/families');
+ app.innerHTML='<section class="welcome"><img class="welcome-logo" src="/logo.svg" alt="Godnatt"><form id="choose-family"><label for="welcome-family">Välj familj</label><select id="welcome-family" required><option value="">Välj din familj…</option>'+fs.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select><button class="welcome-open" '+(!fs.length?'disabled':'')+'>Öppna familjen</button></form><button class="quiet" data-action="new-family">Skapa ny familj ＋</button></section>';
+ $('#choose-family').onsubmit=async e=>{e.preventDefault();await submit(e.target,()=>selectFamily($('#welcome-family').value));};
+}
 function night(){return '<div class="night" aria-hidden="true"><span class="bigmoon">●</span><span class="star">✧ · ✦</span><span class="bookicon">📖</span><div class="hills"></div><div class="hills hill2"></div></div>';}
-async function selectFamily(id){document.body.classList.remove('reading');book=null;await flush();family=await api('/families/'+id);localStorage.setItem('godnatt-family',id);history.replaceState({},'','/');person=null;await renderHome();budget();}
+async function selectFamily(id){document.body.classList.remove('reading','landing');book=null;await flush();family=await api('/families/'+id);localStorage.setItem('godnatt-family',id);history.replaceState({},'','/');person=null;await renderHome();budget();}
 async function renderHome(){
  clearTimeout(poller);
  const fs=await api('/families');
- app.innerHTML='<div class="row between"><div class="row"><span class="eyebrow">Din sagovärld</span><select id="family-select" aria-label="Välj familj">'+fs.map(f=>'<option value="'+esc(f.id)+'" '+(f.id===family.id?'selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></div><div class="row"><button class="quiet small" data-action="new-family">Ny familj ＋</button><button class="quiet small danger" data-action="delete-family">Ta bort familj</button></div></div><section class="hero"><div><p class="eyebrow">För dagens sista lilla äventyr</p><h1>Vad ska vi<br>drömma om i kväll?</h1><p class="muted">En bekant hand. En modig liten hjälte. En berättelse där ditt barn hör hemma.</p></div></section><div class="tabs"><button data-tab="books" class="'+(tab==='books'?'active':'')+'">Bokhyllan</button><button data-tab="people" class="'+(tab==='people'?'active':'')+'">Personer</button></div><div id="content"></div>';
+ app.innerHTML='<button class="quiet small" data-action="landing">← Välj familj</button><div class="row between"><div class="row"><span class="eyebrow">Din sagovärld</span><select id="family-select" aria-label="Välj familj">'+fs.map(f=>'<option value="'+esc(f.id)+'" '+(f.id===family.id?'selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></div><div class="row"><button class="quiet small" data-action="new-family">Ny familj ＋</button><button class="quiet small danger" data-action="delete-family">Ta bort familj</button></div></div><section class="hero"><div><p class="eyebrow">För dagens sista lilla äventyr</p><h1>Vad ska vi<br>drömma om i kväll?</h1><p class="muted">En bekant hand. En modig liten hjälte. En berättelse där ditt barn hör hemma.</p></div></section><div class="tabs"><button data-tab="books" class="'+(tab==='books'?'active':'')+'">Bokhyllan</button><button data-tab="people" class="'+(tab==='people'?'active':'')+'">Personer</button></div><div id="content"></div>';
  $('#family-select').onchange=e=>selectFamily(e.target.value).catch(e=>toast(e.message));
  renderContent();
  if(family.books.some(b=>['queued','generating'].includes(b.status)))poller=setTimeout(async()=>{try{family=await api('/families/'+family.id);if(!dialog.open)renderContent();budget();poller=setTimeout(()=>refresh(),5000);}catch{}},5000);
@@ -45,12 +50,20 @@ function renderContent(){
  $('#content').innerHTML='<div class="row between"><h2>Alla som hör till</h2><button class="quiet" data-action="add-person">Lägg till person ＋</button></div><div class="grid">'+family.people.map(p=>'<button class="card person quiet" data-person="'+esc(p.id)+'">'+avatar(p)+'<div><h3>'+esc(p.name)+'</h3><small>'+esc(p.age)+' år</small></div></button>').join('')+'</div>'+(!family.people.length?'<p class="empty">Lägg till ett barn, en vuxen eller en kompis.</p>':'');
  return;
  }
- $('#content').innerHTML='<div class="row between"><h2>Era små äventyr</h2><div class="row"><span class="muted">'+family.books.length+' böcker</span><button data-action="new-book">Ny bok ＋</button></div></div>'+(family.books.length?'<div class="grid">'+family.books.map(b=>'<article class="card bookcard"><div class="cover">'+(b.cover&&b.status==='ready'?'<img src="/api/media/'+esc(b.cover)+'" alt="">':b.status==='failed'?'☁':'☾')+'</div><span class="eyebrow">'+date(b.created_at)+' · '+b.page_count+' sidor</span><h3>'+esc(b.title)+'</h3>'+(b.status==='ready'?'<p class="pill">Boken är klar</p><p><a class="button" href="/book/'+esc(b.id)+'">Läs boken ↗</a></p>':b.status==='failed'?'<p>'+esc(b.error)+'</p><button class="quiet" data-action="new-book">Ny beställning</button>':'<p><span class="spinner"></span> Skapar · '+b.progress+'/'+b.page_count+' bilder klara</p>')+'</article>').join('')+'</div>':'<div class="empty"><h3>Plats för er första saga.</h3><p>Alla färdiga böcker sparas här.</p><button data-action="new-book">Skapa en bok</button></div>');
+ $('#content').innerHTML='<div class="row between"><h2>Era små äventyr</h2><div class="row"><span class="muted">'+family.books.length+' böcker</span><button data-action="new-book">Ny bok ＋</button></div></div>'+(family.books.length?'<div class="grid">'+family.books.map(b=>'<article class="card bookcard"><button class="delete-book quiet danger" data-delete-book="'+esc(b.id)+'" aria-label="Ta bort '+esc(b.title)+'" title="Ta bort boken">✕</button><div class="cover">'+(b.cover&&b.status==='ready'?'<img src="/api/media/'+esc(b.cover)+'" alt="">':b.status==='failed'?'☁':'☾')+'</div><span class="eyebrow">'+date(b.created_at)+' · '+b.page_count+' sidor</span><h3>'+esc(b.title)+'</h3>'+(b.status==='ready'?'<p class="pill">Boken är klar</p><p><a class="button" href="/book/'+esc(b.id)+'">Läs boken ↗</a></p>':b.status==='failed'?'<p>'+esc(b.error)+'</p><button class="quiet" data-action="new-book">Ny beställning</button>':'<p><span class="spinner"></span> Skapar · '+b.progress+'/'+b.page_count+' bilder klara</p>')+'</article>').join('')+'</div>':'<div class="empty"><h3>Plats för er första saga.</h3><p>Alla färdiga böcker sparas här.</p><button data-action="new-book">Skapa en bok</button></div>');
 }
 function personForm(p=null){
+ let savedId=p?.id||null;
  const info=family.memories.find(m=>m.person_id===p?.id&&m.kind==='profile')?.text||'';
- modal('<h2>'+(p?'Redigera person':'En ny person')+'</h2><form id="person-form"><label>Namn<input name="name" required maxlength="100" value="'+esc(p?.name)+'"></label><div class="cols"><label>Ålder i år<input name="age" type="number" min="0" max="120" step="0.1" required placeholder="1,5" value="'+esc(p?.age??'')+'"></label><label>Kön<input name="gender" maxlength="50" value="'+esc(p?.gender)+'" placeholder="Valfritt"></label></div><label>Allmän info om personen<textarea name="general_info" maxlength="5000" placeholder="Personlighet, intressen, viktiga personer och annat som är bra att veta…">'+esc(info)+'</textarea></label><p><button>Spara person</button></p></form>');
- $('#person-form').onsubmit=async e=>{e.preventDefault();await submit(e.target,async()=>{const d=Object.fromEntries(new FormData(e.target));d.age=Number(d.age);await api(p?'/people/'+p.id:'/families/'+family.id+'/people',p?'PUT':'POST',d);dialog.close();family=await api('/families/'+family.id);if(p)showPerson(p.id);else renderContent();});};
+ modal('<h2>'+(p?'Redigera person':'En ny person')+'</h2><form id="person-form"><label>Namn<input name="name" required maxlength="100" value="'+esc(p?.name)+'"></label><div class="cols"><label>Ålder i år<input name="age" type="number" min="0" max="120" step="0.1" required placeholder="1,5" value="'+esc(p?.age??'')+'"></label><label>Kön<input name="gender" maxlength="50" value="'+esc(p?.gender)+'" placeholder="Valfritt"></label></div><label>Allmän info om personen<textarea name="general_info" maxlength="5000" placeholder="Personlighet, intressen, viktiga personer och annat som är bra att veta…">'+esc(info)+'</textarea></label><label>Bild på personen<input id="person-photo" type="file" accept="image/png,image/jpeg,image/webp"></label><p class="muted" id="person-photo-status">Valfritt. Används för tecknade bilder i böckerna.</p><p><button>'+(p?'Spara person':'Skapa person')+'</button></p></form>');
+ $('#person-form').onsubmit=async e=>{e.preventDefault();await submit(e.target,async()=>{
+ const d=Object.fromEntries(new FormData(e.target));d.age=Number(d.age);
+ const photoFile=$('#person-photo').files[0];
+ if(photoFile&&photoFile.size>12*1024*1024)throw Error('Välj en bild under 12 MB.');
+ const saved=await api(savedId?'/people/'+savedId:'/families/'+family.id+'/people',savedId?'PUT':'POST',d);savedId=saved.id;
+ if(photoFile){const upload=new FormData();upload.append('file',photoFile);try{await api('/people/'+savedId+'/photo','POST',upload);}catch(e){$('#person-photo-status').textContent='Personen är sparad. Bilden kunde inte sparas. Välj en annan bild eller försök igen.';throw e;}}
+ dialog.close();family=await api('/families/'+family.id);if(p)await showPerson(savedId);else{tab='people';await renderHome();}
+ });};
 }
 async function showPerson(id){
  await flush();family=await api('/families/'+family.id);person=family.people.find(p=>p.id===id);const p=person;if(!p)return;
@@ -113,6 +126,7 @@ document.addEventListener('click',async e=>{
  const el=e.target.closest('button,[data-return-family]');if(!el)return;
  try{
  if(el.dataset.tab){tab=el.dataset.tab;await renderHome();return;}
+ if(el.dataset.deleteBook){const b=family.books.find(b=>b.id===el.dataset.deleteBook);if(b&&confirm('Ta bort boken ”'+b.title+'”? Det går inte att ångra.')){el.disabled=true;try{await api('/books/'+b.id,'DELETE');family=await api('/families/'+family.id);renderContent();budget();}finally{el.disabled=false;}}return;}
  if(el.dataset.person){await showPerson(el.dataset.person);return;}
  if(el.dataset.returnFamily){page=0;await selectFamily(el.dataset.returnFamily);return;}
  if(el.dataset.removeRelation){await api('/relations/'+el.dataset.removeRelation,'DELETE');await showPerson(person.id);return;}
@@ -121,6 +135,7 @@ document.addEventListener('click',async e=>{
  switch(el.dataset.action){
  case 'new-family':modal('<h2>En familj att drömma med</h2><form id="family-form"><label>Familjens namn<input name="name" required maxlength="100" placeholder="Familjen…"></label><p class="muted">Familjen blir synlig och redigerbar för alla.</p><button>Skapa familj</button></form>');$('#family-form').onsubmit=async e=>{e.preventDefault();await submit(e.target,async()=>{await flush();const f=await api('/families','POST',Object.fromEntries(new FormData(e.target)));dialog.close();await selectFamily(f.id);});};break;
  case 'delete-family':if(confirm('Ta bort '+family.name+' och alla personer, foton och böcker i familjen? Det går inte att ångra.')){await flush();await api('/families/'+family.id,'DELETE');family=null;person=null;book=null;localStorage.removeItem('godnatt-family');await start();}break;
+ case 'landing':await showLanding();break;
  case 'add-person':personForm();break;
  case 'edit-person':await flush();family=await api('/families/'+family.id);person=family.people.find(p=>p.id===person.id);personForm(person);break;
  case 'relation':relationForm();break;

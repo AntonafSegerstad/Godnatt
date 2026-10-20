@@ -45,6 +45,7 @@ class Person(BaseModel):
     name:str=Field(min_length=1,max_length=100)
     age:float=Field(ge=0,le=120)
     gender:str=Field(default='',max_length=50)
+    general_info:str|None=Field(default=None,max_length=5000)
 class Relation(BaseModel):
     source_id:str
     target_id:str
@@ -83,14 +84,49 @@ def family(id:str):
     f['books']=query('SELECT b.id,b.title,b.status,b.error,b.page_count,b.prompt,b.created_at,(SELECT image_id FROM pages WHERE book_id=b.id ORDER BY number LIMIT 1) AS cover,(SELECT count(*) FROM pages WHERE book_id=b.id) AS progress FROM books b WHERE family_id=%s ORDER BY created_at DESC',(id,))
     return f
 
+def save_profile(c,pid,text):
+    if text is None:return
+    old=c.execute("SELECT * FROM memories WHERE person_id=%s AND kind='profile'",(pid,)).fetchone()
+    if old:
+        c.execute('UPDATE memories SET text=%s,updated_at=now() WHERE id=%s',(text,old['id']))
+    elif text.strip():
+        c.execute("INSERT INTO memories(id,person_id,text,original_text,original_event_date,event_date,kind) VALUES(%s,%s,%s,%s,CURRENT_DATE,CURRENT_DATE,'profile')",(newid(),pid,text,text))
+
 @app.post('/api/families/{id}/people',status_code=201)
 def add_person(id:str,p:Person):
     required('families',id);pid=newid()
-    query('INSERT INTO people(id,family_id,name,age,gender) VALUES(%s,%s,%s,%s,%s)',(pid,id,p.name.strip(),p.age,p.gender));return required('people',pid)
+    with connect() as c:
+        c.execute('INSERT INTO people(id,family_id,name,age,gender) VALUES(%s,%s,%s,%s,%s)',(pid,id,p.name.strip(),p.age,p.gender))
+        save_profile(c,pid,p.general_info)
+    return required('people',pid)
 
 @app.put('/api/people/{id}')
 def edit_person(id:str,p:Person):
-    required('people',id);query('UPDATE people SET name=%s,age=%s,gender=%s WHERE id=%s',(p.name.strip(),p.age,p.gender,id));return required('people',id)
+    required('people',id)
+    with connect() as c:
+        c.execute('UPDATE people SET name=%s,age=%s,gender=%s WHERE id=%s',(p.name.strip(),p.age,p.gender,id))
+        save_profile(c,id,p.general_info)
+    return required('people',id)
+
+@app.delete('/api/families/{id}')
+def delete_family(id:str):
+    with connect() as c:
+        if not c.execute('SELECT id FROM families WHERE id=%s FOR UPDATE',(id,)).fetchone():
+            raise HTTPException(404,'Familjen finns inte längre.')
+        if c.execute("SELECT id FROM books WHERE family_id=%s AND status IN ('queued','generating')",(id,)).fetchone():
+            raise HTTPException(409,'Vänta tills familjens böcker har skapats.')
+        images=c.execute('SELECT photo_id AS id FROM people WHERE family_id=%s AND photo_id IS NOT NULL UNION SELECT p.image_id AS id FROM pages p JOIN books b ON b.id=p.book_id WHERE b.family_id=%s',(id,id)).fetchall()
+        c.execute('DELETE FROM books WHERE family_id=%s',(id,))
+        c.execute('DELETE FROM families WHERE id=%s',(id,))
+        # Charges and the spent budget survive deletion. Only unreferenced family images are removed.
+        c.execute('SELECT id FROM budget WHERE id=1 FOR UPDATE')
+        freed=0
+        for image in images:
+            mid=image['id']
+            deleted=c.execute("DELETE FROM media WHERE id=%s AND NOT EXISTS(SELECT 1 FROM people WHERE photo_id=%s) AND NOT EXISTS(SELECT 1 FROM pages WHERE image_id=%s) AND NOT EXISTS(SELECT 1 FROM books WHERE snapshot::text LIKE %s) RETURNING octet_length(data) AS bytes",(mid,mid,mid,'%'+mid+'%')).fetchone()
+            if deleted:freed+=deleted['bytes']
+        c.execute('UPDATE budget SET storage_bytes=GREATEST(0,storage_bytes-%s) WHERE id=1',(freed,))
+    return {'ok':True}
 
 @app.delete('/api/people/{id}')
 def delete_person(id:str):

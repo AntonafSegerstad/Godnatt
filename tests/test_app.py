@@ -237,3 +237,41 @@ def test_story_schema_requires_string_character_description():
     assert s['properties']['pages']['minItems']==4
     assert s['properties']['pages']['maxItems']==4
     assert not s['additionalProperties']
+
+def test_general_info_single_field_preserves_origin(client,family):
+    from db import query
+    f,p=family
+    body={'name':p['name'],'age':1.5,'general_info':'Tycker om katter'}
+    assert client.put('/api/people/'+p['id'],json=body).status_code==200
+    first=client.get('/api/families/'+f['id']).json()['memories'][0]
+    body['general_info']='Tycker om katter och böcker'
+    client.put('/api/people/'+p['id'],json=body)
+    ms=client.get('/api/families/'+f['id']).json()['memories']
+    assert len(ms)==1 and ms[0]['kind']=='profile'
+    assert ms[0]['text']==body['general_info']
+    assert ms[0]['original_text']=='Tycker om katter' and ms[0]['created_at']==first['created_at']
+    body['general_info']=''
+    assert client.put('/api/people/'+p['id'],json=body).status_code==200
+    created=client.post('/api/families/'+f['id']+'/people',json={'name':'Ny','age':7,'general_info':'Dansar'}).json()
+    assert query("SELECT text FROM memories WHERE person_id=%s AND kind='profile'",(created['id'],),True)['text']=='Dansar'
+
+def test_delete_family_preserves_costs_and_other_families(client,family):
+    from db import query
+    from ledger import reserve,settle
+    from ai import save_media
+    f,p=family;b=dummy_book(f,p)
+    cid=reserve(b,'deletion-test',100);settle(cid,12)
+    assert client.delete('/api/families/'+f['id']).status_code==409
+    buf=io.BytesIO();Image.new('RGB',(8,8),'green').save(buf,'PNG');mid=save_media(buf.getvalue())
+    query('INSERT INTO pages(book_id,number,text,image_id) VALUES(%s,1,%s,%s)',(b,'Test',mid))
+    query("UPDATE books SET status='ready' WHERE id=%s",(b,))
+    other=client.post('/api/families',json={'name':'Behåll familjen'}).json()
+    before=client.get('/api/budget').json()
+    assert client.delete('/api/families/'+f['id']).status_code==200
+    assert client.get('/api/families/'+f['id']).status_code==404
+    assert client.get('/api/books/'+b).status_code==404
+    assert client.get('/api/media/'+mid).status_code==404
+    assert client.get('/api/families/'+other['id']).status_code==200
+    assert client.get('/api/budget').json()['committed_ore']==before['committed_ore']
+    charge=query('SELECT * FROM charges WHERE id=%s',(cid,),True)
+    assert charge['book_id'] is None and charge['actual_ore']==12

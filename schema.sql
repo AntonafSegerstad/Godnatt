@@ -8,3 +8,9 @@ CREATE TABLE IF NOT EXISTS pages(book_id text NOT NULL REFERENCES books ON DELET
 CREATE TABLE IF NOT EXISTS budget(id integer PRIMARY KEY CHECK(id=1),limit_ore bigint NOT NULL CHECK(limit_ore BETWEEN 0 AND 50000),committed_ore bigint NOT NULL DEFAULT 0 CHECK(committed_ore>=0),storage_bytes bigint NOT NULL DEFAULT 0);
 INSERT INTO budget(id,limit_ore) VALUES(1,50000) ON CONFLICT DO NOTHING;
 CREATE TABLE IF NOT EXISTS charges(id text PRIMARY KEY,book_id text NOT NULL REFERENCES books,kind text NOT NULL,reserved_ore bigint NOT NULL,actual_ore bigint,state text NOT NULL DEFAULT 'reserved',created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(book_id,kind));
+
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'event';
+CREATE UNIQUE INDEX IF NOT EXISTS one_profile_per_person ON memories(person_id) WHERE kind='profile';
+ALTER TABLE charges ALTER COLUMN book_id DROP NOT NULL;
+ALTER TABLE charges DROP CONSTRAINT IF EXISTS charges_book_id_fkey;
+ALTER TABLE charges ADD CONSTRAINT charges_book_id_fkey FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE SET NULL;

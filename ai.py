@@ -10,7 +10,7 @@ TEXT_MODEL=os.getenv('TEXT_MODEL','gpt-6-luna')
 IMAGE_MODEL=os.getenv('IMAGE_MODEL','gpt-image-2.5-flare')
 
 def ready():
-    return bool(os.getenv('OPENAI_API_KEY')) and os.getenv('AI_PRICING_VERIFIED')=='true' and int(os.getenv('IMAGE_CALL_MAX_ORE','0'))>0 and Decimal(os.getenv('USD_SEK_CEILING','0'))>0
+    return bool(os.getenv('OPENAI_API_KEY')) and (os.getenv('AI_PRICING_VERIFIED')=='true' or os.getenv('AI_TEST_MODE')=='true') and int(os.getenv('IMAGE_CALL_MAX_ORE','0'))>0 and Decimal(os.getenv('USD_SEK_CEILING','0'))>0
 
 def config_check():
     if not ready():raise HTTPException(503,'AI väntar på säker serverkonfiguration och verifierad kostnadsgräns.')

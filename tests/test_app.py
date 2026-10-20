@@ -218,3 +218,14 @@ def test_worker_rejects_transaction_pooler(monkeypatch):
     monkeypatch.setenv('DATABASE_URL','postgresql://test:test@ep-test-pooler.example.invalid/test')
     try:db.connect();assert False
     except HTTPException as e:assert e.status_code==503
+
+def test_authorized_test_mode_preserves_config_gate(monkeypatch):
+    from ai import ready
+    monkeypatch.setenv('OPENAI_API_KEY','TEST-ONLY')
+    monkeypatch.setenv('AI_PRICING_VERIFIED','false')
+    monkeypatch.setenv('AI_TEST_MODE','true')
+    monkeypatch.setenv('IMAGE_CALL_MAX_ORE','5000')
+    monkeypatch.setenv('USD_SEK_CEILING','15')
+    assert ready()
+    monkeypatch.setenv('AI_TEST_MODE','false')
+    assert not ready()

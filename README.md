@@ -39,3 +39,6 @@ Budgeten omfattar endast anrop som går via denna app och denna databas. Dela in
 
 ## Test
 Kör med en separat testdatabas: TEST_DATABASE_URL=... python -m pytest -q. Testerna rensar endast en egen unik schema per körning. CI kör PostgreSQL 17. Inga riktiga barnuppgifter, foton eller AI-anrop används.
+
+## Godkänt testläge
+2026-10-20 godkände Anton att öppna generering för test. AI_TEST_MODE=true kan öppna generering utan att AI_PRICING_VERIFIED felaktigt sätts till true. Samma delade budgetbokföring, atomiska reservationer, inga automatiska återförsök och lås gäller. Testreservationen på 50 kr per bild är mycket försiktig jämfört med den publicerade kostnadskalkylatorn men är inte en garanterad leverantörsgräns. Därför är strikt verifiering av högsta bildkostnad fortfarande en begränsning. Använd explicit 1024x1024 och low, aldrig auto. Börja med tre korta böcker med fiktiva personer och utan personfoton.

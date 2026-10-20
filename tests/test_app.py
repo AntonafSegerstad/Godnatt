@@ -275,3 +275,14 @@ def test_delete_family_preserves_costs_and_other_families(client,family):
     assert client.get('/api/budget').json()['committed_ore']==before['committed_ore']
     charge=query('SELECT * FROM charges WHERE id=%s',(cid,),True)
     assert charge['book_id'] is None and charge['actual_ore']==12
+
+def test_toddler_overlong_text_stops_before_images(client,family,monkeypatch):
+    from ai import generate
+    f,p=family;b=dummy_book(f,p)
+    calls=fake_ai(monkeypatch)
+    import ai
+    original=ai.page_limits
+    monkeypatch.setattr(ai,'page_limits',lambda age:(2,120))
+    generate(b)
+    assert client.get('/api/books/'+b).json()['status']=='failed'
+    assert len(calls)==1

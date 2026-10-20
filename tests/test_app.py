@@ -229,3 +229,11 @@ def test_authorized_test_mode_preserves_config_gate(monkeypatch):
     assert ready()
     monkeypatch.setenv('AI_TEST_MODE','false')
     assert not ready()
+
+def test_story_schema_requires_string_character_description():
+    from ai import story_schema
+    s=story_schema(4)
+    assert s['properties']['character_bible']['type']=='string'
+    assert s['properties']['pages']['minItems']==4
+    assert s['properties']['pages']['maxItems']==4
+    assert not s['additionalProperties']

@@ -37,3 +37,6 @@ Render YAML har även validerats mot Render JSON Schema. Neon Free-projekt och t
 
 ## Verifiering i GitHub och Render
 2026-10-20: GitHub Actions körde samma 18 tester mot riktig PostgreSQL 17, samtliga godkända. Körning 39442979880. JavaScript-kontroll godkänd. Render-deploy dep-dbbo02gu01pc73edtk2g är live. HTTP 200 för startsida, manifest, service worker och /api/status. Databas och AI är ännu inte anslutna till tjänsten; publicerade verksamhetsflöden återstår.
+
+## Efter säker serverkonfiguration
+Anton har godkänt Neon till Render och serverhemligheterna är placerade i Godnatts egen tjänst. Publika tester godkända för familj, fyra personer, fyra riktade relationer, daterad rättelse med bevarat original, radering, fotouppladdning och återöppning utan session. OpenAI-modellernas läsendpoints svarade 200. Ingen betald AI-generering har genomförts. Budgeten står på 0/500 kr och AI förblir avstängd tills bildkostnadstaket kan verifieras.

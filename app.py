@@ -7,6 +7,8 @@ from fastapi.responses import FileResponse,Response,JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel,Field
+from starlette.concurrency import run_in_threadpool
+from access import authorization,pin_hash,grant,unlock,setup
 from db import init,query,required,connect
 from ai import ready,config_check,save_media,generate,recover
 ROOT=Path(__file__).parent
@@ -28,6 +30,8 @@ async def security(request:Request,call_next):
             return JSONResponse({'detail':'Begäran måste komma från Godnatt.'},403)
         if int(request.headers.get('content-length','0'))>13*1024*1024:
             return JSONResponse({'detail':'Filen är för stor.'},413)
+    try:await run_in_threadpool(authorization,request)
+    except HTTPException as e:return JSONResponse({'detail':e.detail},e.status_code,headers={'Cache-Control':'no-store'})
     r=await call_next(request)
     r.headers['X-Content-Type-Options']='nosniff'
     r.headers['Referrer-Policy']='same-origin'
@@ -40,7 +44,9 @@ async def error(request,exc):
     return JSONResponse({'detail':'Tjänsten kunde inte slutföra begäran. Dina sparade uppgifter finns kvar. Försök igen.'},503)
 
 def newid():return str(uuid.uuid4())
-class Family(BaseModel):name:str=Field(min_length=1,max_length=100)
+class Pin(BaseModel):pin:str=Field(pattern=r'^[0-9]{4}$')
+class PinSetup(Pin):token:str=Field(min_length=32,max_length=200)
+class Family(Pin):name:str=Field(min_length=1,max_length=100)
 class Person(BaseModel):
     name:str=Field(min_length=1,max_length=100)
     age:float=Field(ge=0,le=120)
@@ -61,7 +67,7 @@ class Order(BaseModel):
 
 @app.get('/api/status')
 def status():
-    return {'database':bool(os.getenv('DATABASE_URL')),'ai':ready(),'open_access':True}
+    return {'database':bool(os.getenv('DATABASE_URL')),'ai':ready(),'open_access':False}
 
 @app.get('/healthz')
 def health():
@@ -69,15 +75,26 @@ def health():
     return {'ok':True}
 
 @app.get('/api/families')
-def families():return query('SELECT * FROM families ORDER BY created_at')
+def families():return query('SELECT id,name,created_at,(pin_hash IS NOT NULL) AS pin_set FROM families ORDER BY created_at')
 
 @app.post('/api/families',status_code=201)
-def create_family(f:Family):
-    id=newid();query('INSERT INTO families(id,name) VALUES(%s,%s)',(id,f.name.strip()));return required('families',id)
+def create_family(f:Family,response:Response):
+    id=newid()
+    with connect() as c:
+        c.execute('INSERT INTO families(id,name,pin_hash) VALUES(%s,%s,%s)',(id,f.name.strip(),pin_hash(f.pin)))
+        grant(c,id,response)
+    return {'id':id,'name':f.name.strip(),'pin_set':True}
+
+@app.post('/api/families/{id}/unlock')
+def unlock_family(id:str,p:Pin,response:Response):return unlock(id,p.pin,response)
+
+@app.post('/api/families/{id}/pin-setup')
+def setup_pin(id:str,p:PinSetup,response:Response):return setup(id,p.token,p.pin,response)
 
 @app.get('/api/families/{id}')
 def family(id:str):
-    f=required('families',id)
+    raw=required('families',id)
+    f={k:raw[k] for k in ('id','name','created_at')}
     f['people']=query('SELECT * FROM people WHERE family_id=%s ORDER BY created_at',(id,))
     f['relations']=query('SELECT r.* FROM relations r JOIN people p ON p.id=r.source_id WHERE p.family_id=%s',(id,))
     f['memories']=query('SELECT m.* FROM memories m JOIN people p ON p.id=m.person_id WHERE p.family_id=%s ORDER BY m.event_date DESC,m.created_at DESC',(id,))

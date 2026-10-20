@@ -22,10 +22,10 @@ def client(database):
     from fastapi.testclient import TestClient
     import app
     # Deliberately no lifespan: do not launch unrelated recovery threads in tests.
-    return TestClient(app.app,raise_server_exceptions=False)
+    return TestClient(app.app,raise_server_exceptions=False,base_url='https://testserver')
 
 @pytest.fixture
 def family(client):
-    f=client.post('/api/families',json={'name':'FIKTIV TESTFAMILJ'}).json()
+    f=client.post('/api/families',json={'name':'FIKTIV TESTFAMILJ','pin':'1234'}).json()
     p=client.post(f'/api/families/{f["id"]}/people',json={'name':'Testbarn','age':1.5,'gender':''}).json()
     return f,p

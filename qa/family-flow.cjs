@@ -6,7 +6,8 @@ const browser=await launcher.launch({headless:true});const page=await browser.ne
 const f={id:'f',name:'Fiktiv familj',people:[],memories:[],relations:[],books:[{id:'b',title:'Fiktiv bok',status:'ready',page_count:1,created_at:'2026-10-20'}]};let creates=0,uploads=0,deletes=0;
 await page.route('**/*',async route=>{
 const req=route.request(),url=new URL(req.url()),p=url.pathname;let data,type='application/json',status=200;
-if(p==='/api/status')data={database:true};
+if(p==='/api/families/f/unlock')data={ok:true};
+else if(p==='/api/status')data={database:true};
 else if(p==='/api/budget')data={committed_ore:0,limit_ore:50000};
 else if(p==='/api/families')data=[{id:f.id,name:f.name}];
 else if(p==='/api/families/f')data=f;
@@ -19,7 +20,7 @@ else{const file=p==='/'?'index.html':p.slice(1);if(!['index.html','app.js','styl
 await route.fulfill({status,contentType:type,body:typeof data==='string'?data:JSON.stringify(data)});
 });
 await page.goto('https://test.invalid/');await page.waitForSelector('#welcome-family');assert.equal(await page.locator('#content').count(),0);
-await page.selectOption('#welcome-family','f');await page.getByRole('button',{name:'Öppna familjen'}).click();
+await page.selectOption('#welcome-family','f');await page.getByRole('button',{name:'Öppna familjen'}).click();await page.locator('[name=pin]').fill('1234');await page.getByRole('button',{name:'Öppna',exact:true}).click();
 page.on('dialog',d=>d.accept());await page.getByRole('button',{name:'Ta bort Fiktiv bok',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('[data-delete-book]'));assert.equal(deletes,1);
 await page.getByRole('button',{name:'Personer',exact:true}).click();await page.getByRole('button',{name:'Lägg till person ＋'}).click();
 await page.locator('[name=name]').fill('Fiktiv person');await page.locator('[name=age]').fill('7');await page.locator('[name=general_info]').fill('Tycker om böcker');

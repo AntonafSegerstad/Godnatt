@@ -14,3 +14,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS one_profile_per_person ON memories(person_id) 
 ALTER TABLE charges ALTER COLUMN book_id DROP NOT NULL;
 ALTER TABLE charges DROP CONSTRAINT IF EXISTS charges_book_id_fkey;
 ALTER TABLE charges ADD CONSTRAINT charges_book_id_fkey FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE SET NULL;
+ALTER TABLE families ADD COLUMN IF NOT EXISTS pin_hash text;
+ALTER TABLE families ADD COLUMN IF NOT EXISTS pin_setup_hash text;
+ALTER TABLE families ADD COLUMN IF NOT EXISTS pin_failures integer NOT NULL DEFAULT 0;
+ALTER TABLE families ADD COLUMN IF NOT EXISTS pin_locked_until timestamptz;
+CREATE TABLE IF NOT EXISTS family_sessions(token_hash text PRIMARY KEY,family_id text NOT NULL REFERENCES families ON DELETE CASCADE,expires_at timestamptz NOT NULL);
+CREATE INDEX IF NOT EXISTS family_sessions_expiry ON family_sessions(expires_at);

@@ -24,7 +24,7 @@ def test_multiple_targeted_relations_and_isolation(client,family):
     rs=client.get('/api/families/'+f['id']).json()['relations']
     assert len(rs)==2 and all(r['target_id']==p['id'] for r in rs)
     assert client.post('/api/families/'+f['id']+'/relations',json={'source_id':p['id'],'target_id':p['id'],'role':'kompis'}).status_code==422
-    foreign=client.post('/api/families',json={'name':'ANNAN TESTFAMILJ'}).json()
+    foreign=client.post('/api/families',json={'name':'ANNAN TESTFAMILJ','pin':'1234'}).json()
     assert client.post('/api/families/'+foreign['id']+'/relations',json={'source_id':other['id'],'target_id':p['id'],'role':'kompis'}).status_code==422
     assert client.delete('/api/relations/'+rs[0]['id']).status_code==200
 
@@ -58,8 +58,8 @@ def test_ai_fails_closed_without_config(client,family,monkeypatch):
 def test_input_limits_and_cross_origin(client,family):
     f,p=family
     assert client.post('/api/families/'+f['id']+'/books',json={'person_id':p['id'],'page_count':0,'request_key':str(uuid.uuid4())}).status_code==422
-    assert client.post('/api/families',json={'name':'bad'},headers={'origin':'https://other.example'}).status_code==403
-    assert client.post('/api/families',json={'name':'good'},headers={'origin':'http://testserver'}).status_code==201
+    assert client.post('/api/families',json={'name':'bad','pin':'1234'},headers={'origin':'https://other.example'}).status_code==403
+    assert client.post('/api/families',json={'name':'good','pin':'1234'},headers={'origin':'https://testserver'}).status_code==201
 
 def test_atomic_budget_under_concurrency(client,family):
     from db import query
@@ -111,7 +111,8 @@ def test_book_cross_client_and_restart(client,family):
     for n in [1,2]:query('INSERT INTO pages(book_id,number,text,image_id) VALUES(%s,%s,%s,%s)',(b,n,'FIKTIV TESTSIDA',mid))
     query("UPDATE books SET status='ready',title='FIKTIV TESTBOK' WHERE id=%s",(b,))
     init()
-    second=TestClient(app)
+    second=TestClient(app,base_url='https://testserver')
+    assert second.post('/api/families/'+f['id']+'/unlock',json={'pin':'1234'}).status_code==200
     loaded=second.get('/api/books/'+b).json()
     assert loaded['status']=='ready' and len(loaded['pages'])==2
     assert second.get('/book/'+b).status_code==200
@@ -265,7 +266,7 @@ def test_delete_family_preserves_costs_and_other_families(client,family):
     buf=io.BytesIO();Image.new('RGB',(8,8),'green').save(buf,'PNG');mid=save_media(buf.getvalue())
     query('INSERT INTO pages(book_id,number,text,image_id) VALUES(%s,1,%s,%s)',(b,'Test',mid))
     query("UPDATE books SET status='ready' WHERE id=%s",(b,))
-    other=client.post('/api/families',json={'name':'Behåll familjen'}).json()
+    other=client.post('/api/families',json={'name':'Behåll familjen','pin':'1234'}).json()
     before=client.get('/api/budget').json()
     assert client.delete('/api/families/'+f['id']).status_code==200
     assert client.get('/api/families/'+f['id']).status_code==404
@@ -307,3 +308,49 @@ def test_delete_book_keeps_budget_and_other_book(client,family):
     assert query('SELECT book_id FROM charges WHERE id=%s',(cid,),True)['book_id'] is None
     assert client.delete('/api/books/'+other).status_code==200
     assert client.get('/api/media/'+mid).status_code==404
+
+def test_family_pin_protects_content_and_media(client,family):
+    from fastapi.testclient import TestClient
+    from app import app
+    from db import query
+    f,p=family
+    stranger=TestClient(app,base_url='https://testserver')
+    assert stranger.get('/api/families/'+f['id']).status_code==401
+    assert stranger.put('/api/people/'+p['id'],json={'name':'Ändra','age':7}).status_code==401
+    listed=stranger.get('/api/families').json()
+    assert not any('pin_hash' in row or 'pin_setup_hash' in row for row in listed)
+    assert stranger.post('/api/families/'+f['id']+'/unlock',json={'pin':'0000'}).status_code==401
+    response=stranger.post('/api/families/'+f['id']+'/unlock',json={'pin':'1234'})
+    assert response.status_code==200
+    assert 'HttpOnly' in response.headers['set-cookie'] and 'Secure' in response.headers['set-cookie']
+    assert stranger.get('/api/families/'+f['id']).status_code==200
+    stored=query('SELECT pin_hash FROM families WHERE id=%s',(f['id'],),True)['pin_hash']
+    assert stored!='1234'
+    buf=io.BytesIO();Image.new('RGB',(8,8),'green').save(buf,'PNG')
+    mid=client.post('/api/people/'+p['id']+'/photo',files={'file':('test.png',buf.getvalue(),'image/png')}).json()['photo_id']
+    outsider=TestClient(app,base_url='https://testserver')
+    assert outsider.get('/api/media/'+mid).status_code==401
+    assert stranger.get('/api/media/'+mid).status_code==200
+    b=dummy_book(f,p)
+    assert outsider.get('/api/books/'+b).status_code==401
+    assert outsider.delete('/api/books/'+b).status_code==401
+    assert outsider.delete('/api/families/'+f['id']).status_code==401
+
+def test_pin_attempt_limit_and_setup_link(client,family):
+    from fastapi.testclient import TestClient
+    from app import app
+    from db import query
+    from access import digest
+    f,p=family
+    stranger=TestClient(app,base_url='https://testserver')
+    for _ in range(5):assert stranger.post('/api/families/'+f['id']+'/unlock',json={'pin':'0000'}).status_code==401
+    assert stranger.post('/api/families/'+f['id']+'/unlock',json={'pin':'1234'}).status_code==429
+    legacy=str(uuid.uuid4());token='one-time-test-token-of-sufficient-length'
+    query('INSERT INTO families(id,name,pin_setup_hash) VALUES(%s,%s,%s)',(legacy,'TEST LEGACY',digest(token)))
+    assert stranger.get('/api/families/'+legacy).status_code==401
+    assert stranger.post('/api/families/'+legacy+'/pin-setup',json={'token':'wrong-token-of-sufficient-length-123','pin':'9876'}).status_code==403
+    assert stranger.post('/api/families/'+legacy+'/pin-setup',json={'token':token,'pin':'9876'}).status_code==200
+    assert stranger.post('/api/families/'+legacy+'/pin-setup',json={'token':token,'pin':'9876'}).status_code==403
+    assert stranger.get('/api/families/'+legacy).status_code==200
+    assert client.post('/api/families',json={'name':'No PIN'}).status_code==422
+    assert client.post('/api/families',json={'name':'Short PIN','pin':'123'}).status_code==422

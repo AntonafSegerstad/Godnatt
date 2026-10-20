@@ -11,7 +11,7 @@ async function api(url,method='GET',data){
  else if(data!==undefined){options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(data);}
  const r=await fetch('/api'+url,options);
  const b=await r.json().catch(()=>({detail:'Tjänsten svarar inte.'}));
- if(!r.ok)throw Error(typeof b.detail==='string'?b.detail:'Kontrollera uppgifterna och försök igen.');
+ if(!r.ok){const error=Error(typeof b.detail==='string'?b.detail:b.detail?.message||'Kontrollera uppgifterna och försök igen.');error.familyId=b.detail?.family_id;throw error;}
  return b;
 }
 function toast(s){$('#toast').textContent=s;$('#toast').style.display='block';setTimeout(()=>$('#toast').style.display='none',5500);}
@@ -22,7 +22,9 @@ async function start(){
  try{
  const status=await api('/status');
  if(!status.database){app.innerHTML='<div class="hero"><div><p class="eyebrow">Personliga små böcker</p><h1>En saga som<br>är alldeles din.</h1><p>Godnatt väntar på sin databas. Inget innehåll sparas på denna enhet.</p></div>'+night()+'</div><p class="notice">Serveranslutningen behöver göras klar innan familjer och böcker kan sparas.</p>';return;}
- if(location.pathname.startsWith('/book/')){await readBook(location.pathname.split('/')[2]);return;}
+ const setupMatch=location.hash.match(/^#pin-setup=([^:]+):(.+)$/);
+ if(setupMatch){const [,fid,token]=setupMatch;history.replaceState({},'','/');await showLanding();pinDialog(fid,null,token);return;}
+ if(location.pathname.startsWith('/book/')){const id=location.pathname.split('/')[2];try{await readBook(id);}catch(e){if(e.familyId){pinDialog(e.familyId,id);return;}throw e;}return;}
  await showLanding();
  }catch(e){app.innerHTML='<h1>En liten paus</h1><p>'+esc(e.message)+'</p><button data-action="reload">Försök igen</button>';}
  budget();
@@ -32,7 +34,11 @@ async function showLanding(){
  document.body.classList.remove('reading');document.body.classList.add('landing');history.replaceState({},'','/');
  const fs=await api('/families');
  app.innerHTML='<section class="welcome"><img class="welcome-logo" src="/logo.svg" alt="Godnatt"><form id="choose-family"><label for="welcome-family">Välj familj</label><select id="welcome-family" required><option value="">Välj din familj…</option>'+fs.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>').join('')+'</select><button class="welcome-open" '+(!fs.length?'disabled':'')+'>Öppna familjen</button></form><button class="quiet" data-action="new-family">Skapa ny familj ＋</button></section>';
- $('#choose-family').onsubmit=async e=>{e.preventDefault();await submit(e.target,()=>selectFamily($('#welcome-family').value));};
+ $('#choose-family').onsubmit=async e=>{e.preventDefault();pinDialog($('#welcome-family').value);};
+}
+function pinDialog(fid,bookId=null,setupToken=null){
+ modal('<h2>'+(setupToken?'Välj familjens PIN':'Öppna familjen')+'</h2><form id="pin-form"><label>Fyra siffror<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="off" required autofocus></label><p><button>'+(setupToken?'Spara PIN':'Öppna')+'</button></p><p id="pin-error" role="status"></p></form>');
+ $('#pin-form').onsubmit=async e=>{e.preventDefault();await submit(e.target,async()=>{const pin=e.target.elements.pin.value;try{await api('/families/'+fid+(setupToken?'/pin-setup':'/unlock'),'POST',setupToken?{pin,token:setupToken}:{pin});dialog.close();if(bookId){document.body.classList.remove('landing');await readBook(bookId);}else await selectFamily(fid);}catch(error){$('#pin-error').textContent=error.message;}});};
 }
 function night(){return '<div class="night" aria-hidden="true"><span class="bigmoon">●</span><span class="star">✧ · ✦</span><span class="bookicon">📖</span><div class="hills"></div><div class="hills hill2"></div></div>';}
 async function selectFamily(id){document.body.classList.remove('reading','landing');book=null;await flush();family=await api('/families/'+id);localStorage.setItem('godnatt-family',id);history.replaceState({},'','/');person=null;await renderHome();budget();}
@@ -40,7 +46,7 @@ async function renderHome(){
  clearTimeout(poller);
  const fs=await api('/families');
  app.innerHTML='<button class="quiet small" data-action="landing">← Välj familj</button><div class="row between"><div class="row"><span class="eyebrow">Din sagovärld</span><select id="family-select" aria-label="Välj familj">'+fs.map(f=>'<option value="'+esc(f.id)+'" '+(f.id===family.id?'selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select></div><div class="row"><button class="quiet small" data-action="new-family">Ny familj ＋</button><button class="quiet small danger" data-action="delete-family">Ta bort familj</button></div></div><section class="hero"><div><p class="eyebrow">För dagens sista lilla äventyr</p><h1>Vad ska vi<br>drömma om i kväll?</h1><p class="muted">En bekant hand. En modig liten hjälte. En berättelse där ditt barn hör hemma.</p></div></section><div class="tabs"><button data-tab="books" class="'+(tab==='books'?'active':'')+'">Bokhyllan</button><button data-tab="people" class="'+(tab==='people'?'active':'')+'">Personer</button></div><div id="content"></div>';
- $('#family-select').onchange=e=>selectFamily(e.target.value).catch(e=>toast(e.message));
+ $('#family-select').onchange=e=>{const id=e.target.value;e.target.value=family.id;pinDialog(id);};
  renderContent();
  if(family.books.some(b=>['queued','generating'].includes(b.status)))poller=setTimeout(async()=>{try{family=await api('/families/'+family.id);if(!dialog.open)renderContent();budget();poller=setTimeout(()=>refresh(),5000);}catch{}},5000);
 }
@@ -133,7 +139,7 @@ document.addEventListener('click',async e=>{
  if(el.dataset.editMemory){const m=family.memories.find(m=>m.id===el.dataset.editMemory);modal('<h2>Rätta en anteckning</h2><form id="edit-memory"><label>Datum<input name="event_date" type="date" value="'+esc(m.event_date)+'" required></label><label>Text<textarea name="text" maxlength="5000" required>'+esc(m.text)+'</textarea></label><details><summary>Ursprunglig text · '+date(m.created_at)+'</summary><p>'+esc(m.original_text)+'</p></details><p><button>Spara rättelse</button></p></form>');$('#edit-memory').onsubmit=async e=>{e.preventDefault();await submit(e.target,async()=>{await api('/memories/'+m.id,'PUT',Object.fromEntries(new FormData(e.target)));dialog.close();showPerson(person.id);});};return;}
  if(el.dataset.deleteMemory){if(confirm('Radera denna anteckning?')){await api('/memories/'+el.dataset.deleteMemory,'DELETE');await showPerson(person.id);}return;}
  switch(el.dataset.action){
- case 'new-family':modal('<h2>En familj att drömma med</h2><form id="family-form"><label>Familjens namn<input name="name" required maxlength="100" placeholder="Familjen…"></label><p class="muted">Familjen blir synlig och redigerbar för alla.</p><button>Skapa familj</button></form>');$('#family-form').onsubmit=async e=>{e.preventDefault();await submit(e.target,async()=>{await flush();const f=await api('/families','POST',Object.fromEntries(new FormData(e.target)));dialog.close();await selectFamily(f.id);});};break;
+ case 'new-family':modal('<h2>En familj att drömma med</h2><form id="family-form"><label>Familjens namn<input name="name" required maxlength="100" placeholder="Familjen…"></label><label>Välj PIN-kod – fyra siffror<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="new-password" required></label><p class="muted">Familjens namn syns i listan. Koden behövs för att öppna familjen.</p><button>Skapa familj</button></form>');$('#family-form').onsubmit=async e=>{e.preventDefault();await submit(e.target,async()=>{await flush();const f=await api('/families','POST',Object.fromEntries(new FormData(e.target)));dialog.close();await selectFamily(f.id);});};break;
  case 'delete-family':if(confirm('Ta bort '+family.name+' och alla personer, foton och böcker i familjen? Det går inte att ångra.')){await flush();await api('/families/'+family.id,'DELETE');family=null;person=null;book=null;localStorage.removeItem('godnatt-family');await start();}break;
  case 'landing':await showLanding();break;
  case 'add-person':personForm();break;

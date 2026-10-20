@@ -1,35 +1,46 @@
-# Leveransstatus
-Datum: 2026-10-20.
+# Godnatt – aktuell status
+2026-10-20
 
-## Miljö
-Bygget har körts i en hanterad Linux-miljö i molnet, i /workspace/scratch. Antons dator används inte. Scratch är tillfälligt; leveranspaketet är sparat separat. Ingen löpande obevakad byggtjänst har skapats. Nytt arbete kräver en aktiv chattkörning tills en annan molnprocess konfigurerats.
+## Byggt och publicerat
+Koden finns i https://github.com/AntonafSegerstad/Godnatt på main.
+Kodcommit: 20c03498f37fe60c81a47e1c7e64b51c3fc2fdaf.
+Render Free-tjänst skapad i My Workspace (tea-dajv1feq1p3s739let4g):
+- service srv-dbbo020u01pc73edte3g
+- deploy dep-dbbo02gu01pc73edtk2g: live
+- https://godnatt.onrender.com
+- https://dashboard.render.com/web/srv-dbbo020u01pc73edte3g
+Appskalet svarar över HTTPS. /api/status rapporterar database=false, ai=false.
+Start, manifest och service worker svarar HTTP 200. Appen kan INTE spara familjer eller skapa böcker innan serverkonfigurationen är klar.
 
-## Byggt
-PWA-klient, server, PostgreSQL-schema, fotolagring, relationer, datum och ursprung i livslinjen, bokbeställning, AI-adapter, budgetbokföring, läsare, fel- och omstartshantering, Render-konfiguration och GitHub CI. Lokal Git-historik i molnet. GitHub-repot AntonafSegerstad/Godnatt har skapats och verifierats.
+GitHub CI (PostgreSQL 17) är godkänd:
+https://github.com/AntonafSegerstad/Godnatt/actions/runs/39442979880
+18 tester godkända. AI-svaren är simulerade; ingen riktig AI-kostnad.
 
-## Konton
-GitHub verifierat med eget läsanrop: AntonafSegerstad (id 208667649).
-Render verifierat med egna läsanrop: My Workspace, tea-dajv1feq1p3s739let4g. Miljö evm-dajv47uq1p3s739lohng innehåller invoice-simulator och VASS-todo-list. Inga befintliga resurser har ändrats.
-GitHub-repot AntonafSegerstad/Godnatt är nu skapat av Anton och verifierat skrivbart. Första README-commit: 682a07cbb60ad1e15668e14f197327601d558321. Källkod förs över i nästa commit.
-Render-anslutningen stöder nya Free-webbtjänster, men dess skapandeverktyg saknar val av environmentId. Placeringen i användarens befintliga miljö måste lösas med stödd Blueprint- eller Dashboard-funktion innan den markeras klar.
-Neon är nu verifierat anslutet. Ett nytt separat Godnatt-projekt på kontots verifierade Free-plan har skapats i Frankfurt. Projekt spring-glitter-25968553, branch br-polished-grass-baynrq60 (production), databas godnatt. Compute är begränsad till 0,25 CU och logisk lagringskvot till 512 MiB. Schema och budgetrad är skapade. Inga riktiga personuppgifter eller böcker finns där. OpenAI-servernyckel är inte konfigurerad.
+## Databas
+Neon verifierat Free-konto. Nytt separat projekt Godnatt i Frankfurt:
+- project spring-glitter-25968553
+- branch br-polished-grass-baynrq60, production
+- database godnatt
+- role godnatt_owner
+- endpoint ep-autumn-term-batuc4n4
+Compute 0,25 CU. Logisk lagringskvot 512 MiB. Alla nio app-tabeller och budgetrad skapade.
+Hämta anslutningen via Neon-verktyget vid behov; inga hemligheter finns i koden.
+Använd DIREKT host, inte -pooler-host, eftersom bokjobb använder session advisory locks.
 
-## Testgränser
-Testning sker med PGlite (PostgreSQL i WebAssembly) och PostgreSQL-protokoll, inte med en fristående produktionsserver. Det ger databas- och API-testning men bevisar inte verklig flerprocesslåsning i Neon. GitHub CI är förberett för PostgreSQL 17 och måste köras efter anslutning.
-AI-svar i tester är simulerade. Inga riktiga bilder eller API-böcker har genererats. Mobil- och iPad-CSS är skriven; ingen visuell webbläsarkontroll eller hemskärmsinstallation har utförts. Ingen verklig Render-omstart eller ny publicering har testats. En andra API-klient och återinitiering av schemat testas i testsviten.
+## Säkerhetsblockering
+Försök att skapa Render-tjänsten med DATABASE_URL avvisades av automatisk säkerhetsgranskning. Skälet var att användaren inte uttryckligen godkänt överföringen av databasnyckeln från Neon till Render. Tjänsten skapades därefter UTAN databasnyckel, vilket var den säkrare oberoende åtgärden.
+Överför inte databasnyckeln förrän Anton särskilt godkänt att Godnatts Neon-nyckel får läggas som DATABASE_URL i Godnatts Render-tjänst. Skicka inte hemligheter via chatten, repo eller loggar. Ingen sådan nyckel har överförts till Render.
 
-## Blockerat
-1. GitHub-repot är skapat. För över koden och kör CI.
-2. Neon-databasen är skapad och klar för serverkoppling. Hämta direkt anslutning säkert via Neon-verktygen vid konfiguration. Använd inte poolerad anslutning till arbetaren: dess advisory locks kräver en stabil PostgreSQL-session.
-3. Skapa endast en ny Free-webbtjänst i Render och placera den i prj-dajv47uq1p3s739lohn0 / evm-dajv47uq1p3s739lohng. GitHub och Render är redan anslutna.
-4. Säker OpenAI-nyckel i Render, modellåtkomst och bevisad maximal bildkostnad före AI-aktivering.
-5. Publicera över HTTPS och verifiera riktiga flöden, mobilinstallation, varaktighet efter deploy och en riktig AI-bok inom budget.
+## Kvar
+1. Efter uttryckligt godkännande: sätt DATABASE_URL i just tjänsten srv-dbbo020u01pc73edte3g. Bevara övriga variabler. Sätt PUBLIC_ORIGIN=https://godnatt.onrender.com.
+2. Anton lägger OPENAI_API_KEY säkert i samma tjänst. Nyckeln ska aldrig skrivas i chatten.
+3. Verifiera modellåtkomst och bevisad övre bildkostnad samt säker valutaomräkning. AI_PRICING_VERIFIED är false tills detta är löst; gissa inte IMAGE_CALL_MAX_ORE.
+4. Nuvarande Render-verktyg kan inte välja miljö vid skapandet. Tjänsten har ännu inget verifierat environmentId. Flytta ENDAST Godnatt till evm-dajv47uq1p3s739lohng i projekt prj-dajv47uq1p3s739lohn0 via stödd funktion.
+5. Render-tjänsten har autoDeploy=yes, trigger=commit. render.yaml anger önskat checksPass men MCP-skapandet kan inte sätta det fältet. Ändra till After CI Checks Pass via stödd funktion. Tills dess: kör CI på ändringsgren och för bara godkänd kod till main.
+6. Kontrollera datalagring i publicerad app, riktig AI-bok, återöppning, omstart/redeploy, telefon/iPad och hemskärmsinstallation.
 
-## Kostnad
-0 kr AI-kostnad under bygget. Inga betalda driftplaner har beställts. AI förblir avstängd tills förhandsgränsen är verifierad. En godtycklig prisgissning räcker inte för att bevisa ett verkligt stopp på 500 kr.
+## Skyddade projekt
+invoice-simulator och VASS-todo-list samt samtliga tidigare repon och tjänster har inte ändrats.
 
-## Fortsätt
-Packa upp källpaketet och öppna STATUS.md och README.md. Koden finns på huvudgrenen main i medföljande Git-bundle. För över till det nya GitHub-repot efter säker anslutning. Behåll samtliga andra projekt och data.
-
-## Senaste verifiering
-Render YAML är godkänd mot aktuell publicerad JSON Schema. 18 tester godkända i PGlite. Försök att köra samma tester mot Neon stoppades av DNS-begränsning i molncontainern innan databaskoppling. Ingen native testkörning är därför godkänd ännu. Neon-tabellerna har skapats via den verifierade anslutningen.
+## Molnfortsättning
+Arbetet utförs i en hanterad Linux-molncontainer. Antons dator behövs inte. Koden finns nu i GitHub och tjänsten i Render. Utveckling fortsätter när en chattkörning är aktiv; ingen obegränsad obevakad utvecklingsprocess har skapats.

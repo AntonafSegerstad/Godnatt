@@ -34,3 +34,6 @@ En biblioteksvarning om framtida ändring i Starlettes testklient visas. Den på
 Render YAML har även validerats mot Render JSON Schema. Neon Free-projekt och tabeller skapade. Direkt testanslutning från containern misslyckades vid DNS-upplösning; inga native integrationstester kunde därför köras. Återstående körs i GitHub CI eller från Render efter publicering.
 
 18. Servern avvisar Neon transaction-pooler för att skydda sessionslås under bokskapande.
+
+## Verifiering i GitHub och Render
+2026-10-20: GitHub Actions körde samma 18 tester mot riktig PostgreSQL 17, samtliga godkända. Körning 39442979880. JavaScript-kontroll godkänd. Render-deploy dep-dbbo02gu01pc73edtk2g är live. HTTP 200 för startsida, manifest, service worker och /api/status. Databas och AI är ännu inte anslutna till tjänsten; publicerade verksamhetsflöden återstår.

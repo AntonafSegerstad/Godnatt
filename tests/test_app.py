@@ -127,11 +127,19 @@ def test_partial_book_hidden(client,family):
     assert client.get('/api/books/'+b).json()['pages']==[]
 
 def test_age_adaptation():
-    from ai import story_input
-    b={'page_count':5,'prompt':'','snapshot':{'child':{'age':1.5}}}
-    assert 'pekbok' in story_input(b)
-    b['snapshot']['child']['age']=7;assert 'Gulliga' in story_input(b)
-    b['snapshot']['child']['age']=11;assert 'egen läsning' in story_input(b)
+    from ai import story_input,page_limits,story_schema
+    b={'page_count':5,'prompt':'Ett mysterium','snapshot':{'child':{'age':1.5},'people':[{'age':40}]}}
+    limits=[]
+    for age in [1.5,4,5,7,8,11,12,16]:
+        b['snapshot']['child']['age']=age
+        payload=json.loads(story_input(b))
+        assert f'aktuella ålder är {float(age)} år' in payload['instruction']
+        assert payload['context']==b['snapshot']
+        assert payload['order']==b['prompt']
+        words,chars=page_limits(age);limits.append(words)
+        assert story_schema(5,age)['properties']['pages']['items']['properties']['text']['maxLength']==chars
+    assert limits==sorted(set(limits))
+
 
 def test_install_assets():
     from pathlib import Path
@@ -233,7 +241,7 @@ def test_authorized_test_mode_preserves_config_gate(monkeypatch):
 
 def test_story_schema_requires_string_character_description():
     from ai import story_schema
-    s=story_schema(4)
+    s=story_schema(4,11)
     assert s['properties']['character_bible']['type']=='string'
     assert s['properties']['pages']['minItems']==4
     assert s['properties']['pages']['maxItems']==4
@@ -354,3 +362,38 @@ def test_pin_attempt_limit_and_setup_link(client,family):
     assert stranger.get('/api/families/'+legacy).status_code==200
     assert client.post('/api/families',json={'name':'No PIN'}).status_code==422
     assert client.post('/api/families',json={'name':'Short PIN','pin':'123'}).status_code==422
+
+
+def test_age_and_scene_reach_actual_image_requests(client,family,monkeypatch):
+    from ai import generate
+    from db import query
+    f,p=family
+    for age in [1.5,7,16]:
+        person=dict(p,age=age)
+        b=dummy_book(f,person)
+        calls=fake_ai(monkeypatch);generate(b)
+        assert client.get('/api/books/'+b).json()['status']=='ready'
+        assert len(calls)==3
+        text_request=calls[0][1]['json']
+        instruction=json.loads(text_request['input'])['instruction']
+        assert f'aktuella ålder är {float(age)} år' in instruction
+        for number,(_,kwargs) in enumerate(calls[1:],1):
+            image_request=kwargs['json']
+            prompt=image_request['prompt']
+            assert f'huvudperson som är {float(age)} år' in prompt
+            assert f'Scen {number}: En tecknad kudde.' in prompt
+            assert 'Tecknad testfigur i blå tröja.' in prompt
+            assert 'Testbarn somnar tryggt.' in prompt
+            assert 'Enkel handmålad 2D-barnboksillustration i varma dämpade pastellfärger' not in prompt
+            assert image_request['size']=='1024x1024' and image_request['quality']=='low'
+
+
+def test_image_prompt_preserves_book_style_and_distinct_scenes():
+    from ai import illustration_input
+    book={'snapshot':{'child':{'age':16}}}
+    story={'character_bible':'Grafisk tusch med djupa blå skuggor; Sam har lockigt hår och röd jacka.'}
+    a=illustration_input(book,story,{'text':'Sam hittar en hemlig dörr.','illustration':'Nattlig stad, dörren lyser.'},1,['Sam'])
+    b=illustration_input(book,story,{'text':'Sam kliver in.','illustration':'En svävande skog bakom dörren.'},2,['Sam'])
+    assert story['character_bible'] in a and story['character_bible'] in b
+    assert 'Nattlig stad' in a and 'svävande skog' in b and a!=b
+    assert 'Fotoreferenser i ordning: Sam' in a

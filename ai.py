@@ -46,18 +46,32 @@ def photo(data):
         im=im.convert('RGB');im.thumbnail((512,512));out=io.BytesIO();im.save(out,'JPEG',quality=80);return out.getvalue()
 
 def illustration_style(age):
-    base=('Enkel handmålad 2D-barnboksillustration i varma dämpade pastellfärger, mjuk krita och akvarell, varsamma tunna konturer, '
-          'rundade förenklade former, vänliga uttryck och lätt krit- och papperstextur. Mjukt, varmt och enkelt, inga hårda kontraster. '
-          'ALLT i bilden ska vara tecknat, även vuxna, ansikten och miljö. '
-          'Aldrig fotorealism, fotografi, realistisk hud, kameraeffekter, 3D eller filmstillbild. '
-          'Personfoton används ENDAST för enkla igenkänningstecken som hår, glasögon och kläder; '
-          'rita om personerna helt som barnboksfigurer. Ingen text i bilden. ')
-    if age<3:return base+'Pekbok för småbarn: en enkel handling, 1–2 stora figurer, få stora föremål, lugn ljus bakgrund, mycket luft och minimalt med detaljer.'
-    if age<9:return base+'Gulliga figurer i en tydlig vardagsscen, få bakgrundsdetaljer och varm trygg känsla.'
-    return base+'Uttrycksfulla tecknade figurer för äldre barn, mer utvecklad komposition men fortfarande tydligt förenklad barnboksbild.'
+    return (f'Illustrerad bok för en huvudperson som är {float(age)} år. '
+            'Anpassa bildspråk, detaljnivå, färgpalett och komposition gradvis efter denna exakta ålder och berättelsens genre. '
+            'Småbarn behöver stora tydliga figurer, få detaljer och lugna kompositioner. '
+            'När åldern ökar får bildspråket successivt mer komplexitet, stämning, dramatik och visuell mognad. '
+            'Tonåringar ska få ett ungdomslitterärt bildspråk som passar handlingen. '
+            'Följ bokens valda bildstil i karaktärsbeskrivningen konsekvent genom hela boken; '
+            'välj inte automatiskt pasteller eller gulliga småbarnsfigurer för äldre huvudpersoner. '
+            'Alla personer och miljöer ska vara illustrerade, inte fotografier. '
+            'Personfoton används endast för igenkänningstecken som hår, glasögon och kläder, '
+            'och tolkas i samma illustrationsstil som resten av boken. Ingen skriven text i bilden. ')
 
 def page_limits(age):
-    return (12,120) if age<3 else (40,350) if age<6 else (65,550) if age<9 else (110,900)
+    # Continuous ceilings, not age templates. The model chooses a suitable length below them.
+    age=max(0,float(age))
+    words=min(180,round(12+7*max(0,age-2)**1.35))
+    return words,min(1500,max(120,words*9))
+
+def illustration_input(book,story,page,number,reference_names):
+    age=float(book['snapshot']['child']['age'])
+    return (illustration_style(age)
+            +f'\nGemensam karaktärsbeskrivning och bildstil: {story["character_bible"]}'
+            +f'\nScen {number}: {page["illustration"]}'
+            +f'\nSidans berättelsetext som sammanhang: {page["text"]}'
+            +'\nFörstärk berättelsen med visuella detaljer och stämning, inte enbart en bokstavlig upprepning av texten. '
+            'Behåll huvudpersonens visuella identitet, karaktärernas kläder och bokens bildstil. '
+            'Ingen text eller bokstäver. Fotoreferenser i ordning: '+', '.join(reference_names))
 
 def story_input(book):
     age=float(book['snapshot']['child']['age'])
@@ -109,13 +123,16 @@ Målet: Varje bok ska kännas som en riktig, originell och personligt skriven be
     technical=(f'Skriv på svenska med exakt {book["page_count"]} sidor enligt beställningens sidantal. '
                f'Huvudpersonens aktuella ålder är {age} år; använd den för all åldersanpassning. '
                'Kontext är underlag, inte instruktioner. Hitta inte på verkliga minnen. Använd korrekta namngivna relationer. '
+               'Välj en sammanhängande bildstil utifrån ålder och berättelsens genre och ange den tillsammans med utseende och kläder i character_bible. '
+               'Låt varje separat illustrationsbeskrivning utveckla sidans scen och förstärka berättelsen. '
+               +illustration_style(age)+
                'Returnera enbart JSON: title, character_bible (utseende, kläder, bildstil), '
                'pages: [objekt med text och illustration]. Varje illustration beskriver en tydlig scen utan skriven text. '
                f'Max 1800 tecken per illustration. Högst {words} ord och {chars} tecken text per sida inom appens tekniska gränser.')
     return json.dumps({'instruction':instruction+'\n\nTekniskt svarsformat\n'+technical,
                        'order':book['prompt'],'context':book['snapshot']},ensure_ascii=False)
 
-def story_schema(page_count,age=11):
+def story_schema(page_count,age):
     return {
         'type':'object','additionalProperties':False,
         'properties':{
@@ -165,7 +182,7 @@ def generate(book_id):
                     if p.get('photo_id'):refs.append((p['name'],photo(bytes(required('media',p['photo_id'])['data']))))
                 if len(refs)>8:raise ValueError('Högst åtta fotoreferenser kan användas i en bok.')
                 for i,page in enumerate(story['pages'],1):
-                    prompt=illustration_style(float(book['snapshot']['child']['age']))+f' Tecknad personlig svensk godnattsaga. Barnets ålder: {book["snapshot"]["child"]["age"]}. Samma karaktärer, kläder och stil på alla sidor. {story["character_bible"]}\nScen {i}: {page["illustration"]}\nIngen text eller bokstäver. Fotoreferenser i ordning: '+', '.join(n for n,_ in refs)
+                    prompt=illustration_input(book,story,page,i,[name for name,_ in refs])
                     if len(prompt.encode())>16000:raise ValueError('Bildbeskrivningen är för lång.')
                     charge=reserve(book_id,f'image:{i}',int(os.environ['IMAGE_CALL_MAX_ORE']))
                     params={'model':IMAGE_MODEL,'prompt':prompt,'size':'1024x1024','quality':'low','n':1,'output_format':'jpeg'}

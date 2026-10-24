@@ -67,7 +67,7 @@ class Order(BaseModel):
 
 @app.get('/api/status')
 def status():
-    return {'database':bool(os.getenv('DATABASE_URL')),'ai':ready(),'open_access':False}
+    return {'database':bool(os.getenv('DATABASE_URL')),'ai':ready(),'open_access':False,'commit':os.getenv('RENDER_GIT_COMMIT','')}
 
 @app.get('/healthz')
 def health():

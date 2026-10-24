@@ -148,6 +148,25 @@ def story_schema(page_count,age):
         'required':['title','character_bible','pages']
     }
 
+def provider_result(response,stage):
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError:
+        # Never expose provider bodies: they may echo submitted personal information.
+        try:code=response.json().get('error',{}).get('code')
+        except (ValueError,AttributeError):code=None
+        reasons={
+            'invalid_api_key':'AI-tjänsten nekade serverns autentisering.',
+            'model_not_found':'Den valda AI-modellen är inte tillgänglig.',
+            'insufficient_quota':'AI-tjänstens saldo eller kvot räcker inte.',
+            'invalid_json_schema':'AI-tjänsten nekade bokens svarsformat.',
+            'unsupported_parameter':'AI-tjänsten stöder inte en av anropets inställningar.',
+            'invalid_value':'AI-tjänsten nekade en av anropets inställningar.',
+        }
+        reason=reasons.get(code,'AI-tjänsten kunde inte behandla anropet.') if isinstance(code,str) else 'AI-tjänsten kunde inte behandla anropet.'
+        raise ValueError(f'{stage} avbröts (HTTP {response.status_code}). {reason}') from None
+    return response.json()
+
 def generate(book_id):
     with connect() as guard:
         guard.autocommit=True
@@ -165,7 +184,7 @@ def generate(book_id):
             headers={'Authorization':'Bearer '+os.environ['OPENAI_API_KEY']}
             with httpx.Client(timeout=240,transport=httpx.HTTPTransport(retries=0)) as client:
                 response=client.post('https://api.openai.com/v1/responses',headers=headers,json={'model':TEXT_MODEL,'input':payload,'max_output_tokens':10000,'reasoning':{'effort':'none'},'text':{'format':{'type':'json_schema','name':'bedtime_book','strict':True,'schema':story_schema(book['page_count'],float(book['snapshot']['child']['age']))}},'store':False})
-                response.raise_for_status();result=response.json();settle(charge,text_cost(result.get('usage')))
+                result=provider_result(response,'Textgenereringen');settle(charge,text_cost(result.get('usage')))
                 if result.get('status')!='completed':raise ValueError('Texten blev inte komplett.')
                 raw=''.join(t.get('text','') for o in result.get('output',[]) for t in o.get('content',[]) if t.get('type')=='output_text')
                 story=json.loads(raw)
@@ -188,7 +207,7 @@ def generate(book_id):
                     params={'model':IMAGE_MODEL,'prompt':prompt,'size':'1024x1024','quality':'low','n':1,'output_format':'jpeg'}
                     if refs:response=client.post('https://api.openai.com/v1/images/edits',headers=headers,data={k:str(v) for k,v in params.items()},files=[('image[]',(f'person-{j}.jpg',data,'image/jpeg')) for j,(_,data) in enumerate(refs)])
                     else:response=client.post('https://api.openai.com/v1/images/generations',headers=headers,json=params)
-                    response.raise_for_status();result=response.json();settle(charge,image_cost(result.get('usage')))
+                    result=provider_result(response,'Bildgenereringen');settle(charge,image_cost(result.get('usage')))
                     mid=save_media(base64.b64decode(result['data'][0]['b64_json'],validate=True))
                     query('INSERT INTO pages(book_id,number,text,image_id) VALUES(%s,%s,%s,%s)',(book_id,i,page['text'],mid))
                     query('UPDATE books SET updated_at=now() WHERE id=%s',(book_id,))

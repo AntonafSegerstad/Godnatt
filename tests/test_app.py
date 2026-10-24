@@ -397,3 +397,17 @@ def test_image_prompt_preserves_book_style_and_distinct_scenes():
     assert story['character_bible'] in a and story['character_bible'] in b
     assert 'Nattlig stad' in a and 'svävande skog' in b and a!=b
     assert 'Fotoreferenser i ordning: Sam' in a
+
+
+def test_provider_error_identifies_stage_without_disclosing_response():
+    import httpx
+    from ai import provider_result
+    response=httpx.Response(400,request=httpx.Request('POST','https://api.openai.com/v1/responses'),
+                            json={'error':{'code':'invalid_json_schema','message':'PRIVATE INPUT MUST NOT BE SHOWN'}})
+    try:
+        provider_result(response,'Textgenereringen')
+        assert False
+    except ValueError as error:
+        message=str(error)
+        assert 'Textgenereringen' in message and 'HTTP 400' in message and 'svarsformat' in message
+        assert 'PRIVATE' not in message

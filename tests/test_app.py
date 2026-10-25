@@ -151,7 +151,7 @@ def test_install_assets():
     assert "'/api/'" in (root/'sw.js').read_text()
     assert '@media(max-width:760px)' in (root/'style.css').read_text()
 
-def fake_ai(monkeypatch,wrong_count=False,timeout=False):
+def fake_ai(monkeypatch,wrong_count=False,timeout=False,transform=None):
     import ai
     monkeypatch.setenv('OPENAI_API_KEY','TEST-ONLY-NOT-A-KEY')
     monkeypatch.setenv('AI_PRICING_VERIFIED','true')
@@ -173,7 +173,9 @@ def fake_ai(monkeypatch,wrong_count=False,timeout=False):
             calls.append((url,kw))
             if timeout:raise TimeoutError('SIMULATED timeout')
             if url.endswith('/responses'):
-                story={'title':'FIKTIV AI-TESTBOK','character_bible':'Tecknad testfigur i blå tröja.','pages':[{'text':'Testbarn somnar tryggt.','illustration':'En tecknad kudde.'} for _ in range(1 if wrong_count else 2)]}
+                child_id=json.loads(kw['json']['input'])['context']['child']['id']
+                story={'cast_ids':[child_id],'title':'FIKTIV AI-TESTBOK','character_bible':'Tecknad testfigur i blå tröja.','pages':[{'text':'Testbarn somnar tryggt.','illustration':'En tecknad kudde.','visible_person_ids':[child_id]} for _ in range(1 if wrong_count else 2)]}
+                if transform:transform(story)
                 return Reply({'status':'completed','usage':{'input_tokens':200,'output_tokens':200},'output':[{'content':[{'type':'output_text','text':json.dumps(story)}]}]})
             return Reply({'usage':{'input_tokens_details':{'text_tokens':100,'image_tokens':0},'output_tokens':100},'data':[{'b64_json':encoded}]})
     monkeypatch.setattr(ai.httpx,'Client',FakeClient)
@@ -411,3 +413,53 @@ def test_provider_error_identifies_stage_without_disclosing_response():
         message=str(error)
         assert 'Textgenereringen' in message and 'HTTP 400' in message and 'svarsformat' in message
         assert 'PRIVATE' not in message
+
+
+def test_only_scene_participants_are_sent_as_photo_references(client,family,monkeypatch):
+    import ai
+    from db import query
+    f,child=family
+    people=[child]
+    for name,age in [('Pappa',35),('Farmor',65),('Syskon',5)]:
+        people.append(client.post('/api/families/'+f['id']+'/people',json={'name':name,'age':age}).json())
+    for person in people:
+        buf=io.BytesIO();Image.new('RGB',(10,10),'blue').save(buf,'PNG')
+        response=client.post('/api/people/'+person['id']+'/photo',files={'file':('test.png',buf.getvalue(),'image/png')})
+        assert response.status_code==200
+        person['photo_id']=response.json()['photo_id']
+    child,dad,grandma,sibling=people
+    b=dummy_book(f,child)
+    snapshot={'child':child,'people':people,'relations':[],'memories':[]}
+    query('UPDATE books SET snapshot=%s::jsonb,prompt=%s WHERE id=%s',(json.dumps(snapshot,default=str),'Testbarn och pappa hälsar på farmor.',b))
+    def choose_cast(story):
+        story['cast_ids']=[child['id'],dad['id'],grandma['id']]
+        story['pages'][0]['visible_person_ids']=[child['id'],dad['id']]
+        story['pages'][1]['visible_person_ids']=[child['id'],grandma['id']]
+    calls=fake_ai(monkeypatch,transform=choose_cast)
+    fetched=[];original=ai.required
+    def record_media(table,id):
+        if table=='media':fetched.append(id)
+        return original(table,id)
+    monkeypatch.setattr(ai,'required',record_media)
+    ai.generate(b)
+    assert client.get('/api/books/'+b).json()['status']=='ready'
+    assert fetched==[child['photo_id'],dad['photo_id'],grandma['photo_id']]
+    image_calls=calls[1:]
+    assert len(image_calls)==2 and all(url.endswith('/images/edits') for url,_ in image_calls)
+    for (_,kwargs),expected,absent in zip(image_calls,[dad,grandma],[grandma,dad]):
+        assert len(kwargs['files'])==2
+        prompt=kwargs['data']['prompt']
+        assert 'Fotoreferenser i ordning: '+child['name']+', '+expected['name'] in prompt
+        assert absent['name'] not in prompt and sibling['name'] not in prompt
+    schema=calls[0][1]['json']['text']['format']['schema']
+    assert set(schema['properties']['cast_ids']['items']['enum'])=={p['id'] for p in people}
+
+
+def test_invalid_page_cast_stops_before_images(client,family,monkeypatch):
+    from ai import generate
+    f,p=family;b=dummy_book(f,p)
+    def invalid(story):story['pages'][0]['visible_person_ids']=['not-in-cast']
+    calls=fake_ai(monkeypatch,transform=invalid);generate(b)
+    result=client.get('/api/books/'+b).json()
+    assert result['status']=='failed' and result['pages']==[]
+    assert len(calls)==1 and 'utanför' in result['error']

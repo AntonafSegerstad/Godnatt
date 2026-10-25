@@ -65,7 +65,12 @@ def page_limits(age):
 
 def illustration_input(book,story,page,number,reference_names):
     age=float(book['snapshot']['child']['age'])
+    people={p['id']:p for p in book['snapshot'].get('people',[])}
+    visible=[people[pid]['name'] for pid in page.get('visible_person_ids',[])]
     return (illustration_style(age)
+            +'\nFamiljepersoner som ska synas i denna bild: '+(', '.join(visible) if visible else 'inga')
+            +'\nVisa endast dessa familjepersoner. Övriga personer i bokens gemensamma beskrivning ska inte läggas till. '
+            'En omnämnd eller frånvarande person ska inte synas. Följ scenens plats, aktivitet och deltagare. '
             +f'\nGemensam karaktärsbeskrivning och bildstil: {story["character_bible"]}'
             +f'\nScen {number}: {page["illustration"]}'
             +f'\nSidans berättelsetext som sammanhang: {page["text"]}'
@@ -96,13 +101,23 @@ Kreativ frihet
 * Använd informationen som kreativ inspiration, inte som ett manus som ska återberättas ordagrant.
 * Skilj mellan beställarens uttryckliga önskemål om handlingen och bakgrundsfakta om personerna. Följ avsiktliga önskemål om vad som ska hända, men behandla personbeskrivningar som underlag för gestaltningen.
 * Utseende, hårfärg, ögonfärg och kläder hör i första hand hemma i character_bible och illustrationsbeskrivningarna. För över sådana uppgifter dit även när de står i beställningsfältet. Skriv inte automatiskt ut dem i sagotexten.
-* Exempel: ”kusinerna har blont hår” är en visuell uppgift. Låt kusinerna ha blont hår i bilderna, utan att presentera dem med en mening om deras hårfärg. Nämn utseendet i texten bara när det tillför något till scenen, handlingen eller karaktäriseringen.
+* Exempel: ”kusinerna har blont hår” är en visuell uppgift, inte i sig ett önskemål att kusinerna ska delta. Om kusinerna deltar ska de ha blont hår i bilderna, utan att presentera dem med en mening om deras hårfärg. Nämn utseendet i texten bara när det tillför något till scenen, handlingen eller karaktäriseringen.
 * Alla profiluppgifter behöver inte förekomma i berättelsen. Välj de få detaljer som bär just denna saga och låt resten vara bakgrund. Räkna inte upp personernas egenskaper, intressen eller relationer för att visa att du har läst underlaget.
 * Låt personlighet och relationer märkas genom handling, repliker, val och små iakttagelser. Använd naturliga relationsord som ”kusinerna” där de behövs, men undvik faktapresentationer och förklaringar som bryter berättelsen.
 * Skapa originella äventyr, situationer, miljöer och karaktärer som växer naturligt ur personens sammanhang.
 * Tillåt fantasi, magi, humor, mysterier och överraskningar.
 * Variera berättelsernas handling, konflikter och miljöer mellan olika böcker.
 * Undvik upprepade berättelsemallar och förutsägbara avslut.
+
+Deltagare och sammanhang
+
+* Beställningens avsedda händelse och deltagare avgränsar berättelsen. Om beställningen säger ”Florence och pappa hälsar på farmor” är Florence, pappa och farmor bokens familjepersoner. Lägg inte till mamma, syskon, kusiner eller andra släktingar för att de finns i underlaget eller har ett foto.
+* Skilj mellan någon som faktiskt deltar i händelsen och någon som bara nämns som bakgrund eller beskrivs till utseendet. Familjelistan är ett register att slå upp rätt person och relation i, inte en lista över vilka som ska vara med.
+* Fastställ familjens deltagare i cast_ids med deras exakta id:n från kontexten. Den valda huvudpersonen ska ingå. Vid en öppen beställning utan angivna medverkande väljer du ett litet, relevant persongalleri; ta inte med hela familjen automatiskt.
+* Planera en sammanhängande händelsekedja före skrivandet. Låt varje sida följa av föregående sida och bevara vem som är på plats, var de är, vad de gör och vad som redan har hänt. Varken personer eller föremål ska dyka upp, försvinna eller byta identitet utan en begriplig övergång.
+* Behåll besökets plats, deltagare och de aktiviteter beställaren har angett. Låt den kreativa friheten utveckla situationen genom händelser, upptäckter, humor och känslor inom den ramen. Lägg inte till familjemedlemmar för att skapa variation. Fiktiva bifigurer får förekomma när de behövs för det valda äventyret och passar beställningen.
+* Ange visible_person_ids för varje sida: endast de familjepersoner ur cast_ids som faktiskt ska synas i just den bilden. Listan får vara tom i en miljöbild. En person som omnämns, minns eller är någon annanstans ska inte automatiskt synas.
+* character_bible ska bara beskriva bokens valda deltagare och eventuella fiktiva bifigurer, tillsammans med bokens bildstil. Sidans illustration ska stämma med samma scen och deltagare som sidans text.
 
 Litterär kvalitet
 
@@ -131,7 +146,7 @@ Särskilda regler
 Redaktionell genomgång före leverans
 
 * Granska sagotexten före JSON-svaret: stryk faktauppräkningar och meningar som bara återger profilen eller beställningens formuleringar. Behåll uppgifter som behövs för begriplighet eller som tillför litterärt värde.
-* Kontrollera att visuella fakta finns kvar i bildunderlaget och att uttryckliga önskemål om handlingen har följts. Kontrollera att resultatet har egna scener, en huvudperson som agerar och en åldersanpassad berättarröst. Returnera endast boken i begärt JSON-format, inte denna genomgång.
+* Kontrollera att visuella fakta för de medverkande finns kvar i bildunderlaget och att uttryckliga önskemål om handlingen har följts. Kontrollera att cast_ids inte har fått oönskade familjemedlemmar och att varje sidas text, bildbeskrivning och visible_person_ids beskriver samma sammanhängande situation. Kontrollera att resultatet har egna scener, en huvudperson som agerar och en åldersanpassad berättarröst. Returnera endast boken i begärt JSON-format, inte denna genomgång.
 
 Målet: Varje bok ska kännas som en riktig, originell och personligt skriven berättelse – inte som en AI-sammanfattning av personens profil."""
     technical=(f'Skriv på svenska med exakt {book["page_count"]} sidor enligt beställningens sidantal. '
@@ -140,27 +155,45 @@ Målet: Varje bok ska kännas som en riktig, originell och personligt skriven be
                'Välj en sammanhängande bildstil utifrån ålder och berättelsens genre och ange den tillsammans med utseende och kläder i character_bible. '
                'Låt varje separat illustrationsbeskrivning utveckla sidans scen och förstärka berättelsen. '
                +illustration_style(age)+
-               'Returnera enbart JSON: title, character_bible (utseende, kläder, bildstil), '
-               'pages: [objekt med text och illustration]. Varje illustration beskriver en tydlig scen utan skriven text. '
+               'Returnera enbart JSON: title, cast_ids (familjens deltagare), character_bible (deltagarnas utseende, kläder, bildstil), '
+               'pages: [objekt med text, illustration och visible_person_ids]. Varje illustration beskriver en tydlig scen utan skriven text. '
                f'Max 1800 tecken per illustration. Högst {words} ord och {chars} tecken text per sida inom appens tekniska gränser.')
     return json.dumps({'instruction':instruction+'\n\nTekniskt svarsformat\n'+technical,
                        'order':book['prompt'],'context':book['snapshot']},ensure_ascii=False)
 
-def story_schema(page_count,age):
+def story_schema(page_count,age,person_ids=None):
+    person={'type':'string'}
+    if person_ids:person['enum']=list(person_ids)
     return {
         'type':'object','additionalProperties':False,
         'properties':{
             'title':{'type':'string'},
             'character_bible':{'type':'string'},
+            'cast_ids':{'type':'array','items':person},
             'pages':{
                 'type':'array','minItems':page_count,'maxItems':page_count,
                 'items':{'type':'object','additionalProperties':False,
-                         'properties':{'text':{'type':'string','maxLength':page_limits(age)[1]},'illustration':{'type':'string'}},
-                         'required':['text','illustration']}
+                         'properties':{'text':{'type':'string','maxLength':page_limits(age)[1]},'illustration':{'type':'string'},'visible_person_ids':{'type':'array','items':person}},
+                         'required':['text','illustration','visible_person_ids']}
             }
         },
-        'required':['title','character_bible','pages']
+        'required':['title','cast_ids','character_bible','pages']
     }
+
+def validate_story_cast(book,story):
+    people={p['id']:p for p in book['snapshot']['people']}
+    cast=story.get('cast_ids')
+    if not isinstance(cast,list) or not all(isinstance(id,str) for id in cast):
+        raise ValueError('Bokens deltagare saknas.')
+    if len(cast)!=len(set(cast)) or not set(cast)<=people.keys() or book['snapshot']['child']['id'] not in cast:
+        raise ValueError('Bokens deltagare stämmer inte med beställningens personer.')
+    for page in story['pages']:
+        visible=page.get('visible_person_ids')
+        if not isinstance(visible,list) or not all(isinstance(id,str) for id in visible):
+            raise ValueError('Bildens deltagare saknas.')
+        if len(visible)!=len(set(visible)) or not set(visible)<=set(cast):
+            raise ValueError('Bilden innehåller personer utanför bokens deltagare.')
+    return people
 
 def provider_result(response,stage):
     try:
@@ -192,12 +225,13 @@ def generate(book_id):
         try:
             config_check()
             payload=story_input(book)
+            schema=story_schema(book['page_count'],float(book['snapshot']['child']['age']),[p['id'] for p in book['snapshot']['people']])
             if len(payload.encode())>60000:raise ValueError('För mycket kontext. Kortare underlag behövs för denna bok.')
-            text_ceiling=ore((Decimal(len(payload.encode())+1000)*Decimal(os.getenv('TEXT_INPUT_USD_M','0.10'))+Decimal(10000)*Decimal(os.getenv('TEXT_OUTPUT_USD_M','0.50')))/1000000)
+            text_ceiling=ore((Decimal(len(payload.encode())+len(json.dumps(schema).encode())+1000)*Decimal(os.getenv('TEXT_INPUT_USD_M','0.10'))+Decimal(10000)*Decimal(os.getenv('TEXT_OUTPUT_USD_M','0.50')))/1000000)
             charge=reserve(book_id,'text',max(1,text_ceiling))
             headers={'Authorization':'Bearer '+os.environ['OPENAI_API_KEY']}
             with httpx.Client(timeout=240,transport=httpx.HTTPTransport(retries=0)) as client:
-                response=client.post('https://api.openai.com/v1/responses',headers=headers,json={'model':TEXT_MODEL,'input':payload,'max_output_tokens':10000,'reasoning':{'effort':'none'},'text':{'format':{'type':'json_schema','name':'bedtime_book','strict':True,'schema':story_schema(book['page_count'],float(book['snapshot']['child']['age']))}},'store':False})
+                response=client.post('https://api.openai.com/v1/responses',headers=headers,json={'model':TEXT_MODEL,'input':payload,'max_output_tokens':10000,'reasoning':{'effort':'none'},'text':{'format':{'type':'json_schema','name':'bedtime_book','strict':True,'schema':schema}},'store':False})
                 result=provider_result(response,'Textgenereringen');settle(charge,text_cost(result.get('usage')))
                 if result.get('status')!='completed':raise ValueError('Texten blev inte komplett.')
                 raw=''.join(t.get('text','') for o in result.get('output',[]) for t in o.get('content',[]) if t.get('type')=='output_text')
@@ -209,12 +243,18 @@ def generate(book_id):
                 for page in story['pages']:
                     if isinstance(page.get('text'),str) and (len(page['text'])>chars or len(page['text'].split())>words):raise ValueError('Texten blev för lång för barnets ålder. Boken visas inte som klar.')
                     if not isinstance(page.get('text'),str) or not 1<=len(page['text'])<=1500 or not isinstance(page.get('illustration'),str) or not 1<=len(page['illustration'])<=1800:raise ValueError('En sida är ogiltig.')
+                people=validate_story_cast(book,story)
                 query('UPDATE books SET story=%s::jsonb,title=%s WHERE id=%s',(json.dumps(story),story['title'],book_id))
-                refs=[]
-                for p in book['snapshot']['people']:
-                    if p.get('photo_id'):refs.append((p['name'],photo(bytes(required('media',p['photo_id'])['data']))))
-                if len(refs)>8:raise ValueError('Högst åtta fotoreferenser kan användas i en bok.')
+                photo_cache={}
                 for i,page in enumerate(story['pages'],1):
+                    refs=[]
+                    for pid in page['visible_person_ids']:
+                        person=people[pid]
+                        if not person.get('photo_id'):continue
+                        if pid not in photo_cache:
+                            photo_cache[pid]=photo(bytes(required('media',person['photo_id'])['data']))
+                        refs.append((person['name'],photo_cache[pid]))
+                    if len(refs)>8:raise ValueError('Högst åtta fotoreferenser kan användas i en bild.')
                     prompt=illustration_input(book,story,page,i,[name for name,_ in refs])
                     if len(prompt.encode())>16000:raise ValueError('Bildbeskrivningen är för lång.')
                     charge=reserve(book_id,f'image:{i}',int(os.environ['IMAGE_CALL_MAX_ORE']))

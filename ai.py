@@ -94,6 +94,11 @@ Kreativ frihet
 
 * Läs all tillgänglig information om huvudpersonen, familjen, relationer, intressen och händelser.
 * Använd informationen som kreativ inspiration, inte som ett manus som ska återberättas ordagrant.
+* Skilj mellan beställarens uttryckliga önskemål om handlingen och bakgrundsfakta om personerna. Följ avsiktliga önskemål om vad som ska hända, men behandla personbeskrivningar som underlag för gestaltningen.
+* Utseende, hårfärg, ögonfärg och kläder hör i första hand hemma i character_bible och illustrationsbeskrivningarna. För över sådana uppgifter dit även när de står i beställningsfältet. Skriv inte automatiskt ut dem i sagotexten.
+* Exempel: ”kusinerna har blont hår” är en visuell uppgift. Låt kusinerna ha blont hår i bilderna, utan att presentera dem med en mening om deras hårfärg. Nämn utseendet i texten bara när det tillför något till scenen, handlingen eller karaktäriseringen.
+* Alla profiluppgifter behöver inte förekomma i berättelsen. Välj de få detaljer som bär just denna saga och låt resten vara bakgrund. Räkna inte upp personernas egenskaper, intressen eller relationer för att visa att du har läst underlaget.
+* Låt personlighet och relationer märkas genom handling, repliker, val och små iakttagelser. Använd naturliga relationsord som ”kusinerna” där de behövs, men undvik faktapresentationer och förklaringar som bryter berättelsen.
 * Skapa originella äventyr, situationer, miljöer och karaktärer som växer naturligt ur personens sammanhang.
 * Tillåt fantasi, magi, humor, mysterier och överraskningar.
 * Variera berättelsernas handling, konflikter och miljöer mellan olika böcker.
@@ -102,8 +107,11 @@ Kreativ frihet
 Litterär kvalitet
 
 * Inspireras av den klassiska barnlitteraturens värme, fantasi och berättarglädje.
+* Astrid Lindgren är en litterär referens för ett levande barnperspektiv, konkreta vardagsmiljöer som öppnar sig mot äventyr, lekfull humor, självständiga barn och känslomässig trovärdighet. Låt dessa kvaliteter påverka hur scener och karaktärer byggs upp, anpassat till huvudpersonens ålder.
+* Ge huvudpersonen en egen vilja och låt den driva berättelsen. För äldre barn och ungdomar får mod, vänskap, längtan och motsättningar få fler nyanser; småbarn får samma närvaro och berättarglädje i mycket enkla, tydliga händelser.
+* Skriv konkreta scener med sinnligt förankrade detaljer, åldersanpassad rytm och naturliga repliker när de passar. Låt humor, förundran och känslor uppstå i det som händer, utan att förklara dem eller avsluta med en påklistrad sensmoral.
 * Anpassa berättartekniken gradvis mot ungdomslitteratur och vuxenlitteratur när åldern ökar.
-* Skapa egna litterära uttryck, inte imitationer av specifika författare.
+* Skapa ett självständigt litterärt uttryck. Använd referensernas berättarkvaliteter utan att låna deras figurer, världar, handlingar eller karakteristiska formuleringar. Författarnamnen ska inte nämnas i själva sagan.
 * Låt karaktärerna utvecklas och agera trovärdigt utifrån sin ålder.
 
 Bildgenerering
@@ -111,6 +119,7 @@ Bildgenerering
 * Generera en separat illustrationsbeskrivning för varje sida.
 * Anpassa bildspråk, detaljnivå, färgpalett och komposition efter ålder och berättelsens genre.
 * Behåll huvudpersonens visuella identitet konsekvent genom hela boken.
+* Bevara beställningens visuella fakta i character_bible och använd dem konsekvent i varje relevant illustration, även när de inte nämns i sagotexten. Skilj tydligt på olika personers utseenden.
 * Bilderna ska förstärka berättelsen, inte bara upprepa texten.
 
 Särskilda regler
@@ -118,6 +127,11 @@ Särskilda regler
 * Leo, 1–2 år: Behåll mycket enkelt språk, en kort mening per sida och stora tydliga bilder.
 * Använd alltid den valda huvudpersonens aktuella ålder, inte en global standardålder.
 * Anpassningen ska vara dynamisk, inte begränsad till fasta åldersmallar.
+
+Redaktionell genomgång före leverans
+
+* Granska sagotexten före JSON-svaret: stryk faktauppräkningar och meningar som bara återger profilen eller beställningens formuleringar. Behåll uppgifter som behövs för begriplighet eller som tillför litterärt värde.
+* Kontrollera att visuella fakta finns kvar i bildunderlaget och att uttryckliga önskemål om handlingen har följts. Kontrollera att resultatet har egna scener, en huvudperson som agerar och en åldersanpassad berättarröst. Returnera endast boken i begärt JSON-format, inte denna genomgång.
 
 Målet: Varje bok ska kännas som en riktig, originell och personligt skriven berättelse – inte som en AI-sammanfattning av personens profil."""
     technical=(f'Skriv på svenska med exakt {book["page_count"]} sidor enligt beställningens sidantal. '
